@@ -1149,6 +1149,49 @@ public class HTTPSession implements AutoCloseable
         return methodList.size();
     }
 
+    protected void ensureHttpClient()
+    {
+        if(this.cachedclient != null)
+            return;
+
+/*
+    ssl.TrustManagerFactory.algorithm
+    javax.net.ssl.trustStoreType
+    javax.net.ssl.trustStore
+    javax.net.ssl.trustStoreProvider
+    javax.net.ssl.trustStorePassword
+    ssl.KeyManagerFactory.algorithm
+    javax.net.ssl.keyStoreType
+    javax.net.ssl.keyStore
+    javax.net.ssl.keyStoreProvider
+    javax.net.ssl.keyStorePassword
+    https.protocols
+    https.cipherSuites
+    http.proxyHost
+    http.proxyPort
+    http.nonProxyHosts
+    http.keepAlive
+    http.maxConnections
+    http.agent
+*/
+
+
+    }
+
+    //////////////////////////////////////////////////
+    // Testing support
+
+    // Expose the state for testing purposes
+    public boolean isClosed()
+    {
+        return this.closed;
+    }
+
+    public int getMethodcount()
+    {
+        return methodList.size();
+    }
+
     //////////////////////////////////////////////////
     // Debug interface
 
