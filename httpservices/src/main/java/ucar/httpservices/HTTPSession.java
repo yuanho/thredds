@@ -254,7 +254,7 @@ public class HTTPSession implements AutoCloseable
             synchronized (RetryHandler.class) {
                 if(executionCount >= retries)
                     return false;
-            }
+	    }
             if((exception instanceof InterruptedIOException) // Timeout
                 || (exception instanceof UnknownHostException)
                 || (exception instanceof ConnectException) // connection refused
@@ -276,7 +276,8 @@ public class HTTPSession implements AutoCloseable
 
         static public synchronized void setRetries(int retries)
         {
-            RetryHandler.retries = retries;
+            if(retries > 0)
+                RetryHandler.retries = retries;
         }
 
         static public synchronized boolean getVerbose()
@@ -509,13 +510,13 @@ public class HTTPSession implements AutoCloseable
     static public void
     setGlobalCredentialsProvider(AuthScope scope, CredentialsProvider provider)
     {
-        defineCredentialsProvider(ANY_PRINCIPAL, scope, provider, HTTPAuthStore.getDefault());
+        defineCredentialsProvider(ANY_PRINCIPAL, scope, provider, HTTPAuthStore.getDefaults);
     }
 
     static public void
     setGlobalCredentialsProvider(CredentialsProvider provider)
     {
-        defineCredentialsProvider(ANY_PRINCIPAL, HTTPAuthScope.ANY, provider, HTTPAuthStore.getDefault());
+        defineCredentialsProvider(ANY_PRINCIPAL, HTTPAuthScope.ANY, provider, HTTPAuthStore.getDefaults());
     }
 
     // It is convenient to be able to directly set the Credentials
@@ -604,28 +605,28 @@ public class HTTPSession implements AutoCloseable
     static public String
     getUrlAsString(String url) throws HTTPException
     {
-        try (
-            HTTPSession session = HTTPFactory.newSession(url);
-            HTTPMethod m = HTTPFactory.Get(session);) {
+	try (
+	    HTTPSession session = HTTPFactory.newSession(url);
+            HTTPMethod m = HTTPFactory.Get(session)) {
             int status = m.execute();
             String content = null;
             if(status == 200) {
                 content = m.getResponseAsString();
-            }
+	    }
             return content;
-        }
+	} 
     }
 
     static public int
     putUrlAsString(String content, String url) throws HTTPException
     {
-        int status = 0;
-        try {
+	int status = 0;
+	try {
             try (HTTPMethod m = HTTPFactory.Put(url)) {
                 m.setRequestContent(new StringEntity(content,
                         ContentType.create("application/text", "UTF-8")));
                 status = m.execute();
-            }
+	    }
         } catch (UnsupportedCharsetException uce) {
             throw new HTTPException(uce);
         }
@@ -722,6 +723,7 @@ public class HTTPSession implements AutoCloseable
     protected String legalurl = null;
     protected boolean closed = false;
     protected Settings localsettings = new Settings();
+    protected HttpContext execcontext = null; // same instance must be used for all methods
     protected HTTPAuthStore authlocal =  HTTPAuthStore.getDefault();
     // We currently only allow the use of global interceptors
     protected List<Object> intercepts = new ArrayList<Object>(); // current set of interceptors;
@@ -756,7 +758,7 @@ public class HTTPSession implements AutoCloseable
         this.legalurl = url;
         try {
             synchronized (HTTPSession.class) {
-                sessionClient = new DefaultHttpClient(connmgr);
+                cachedclient = new DefaultHttpClient(connmgr);
             }
             if(TESTING) HTTPSession.track(this);
             setInterceptors();
@@ -817,8 +819,8 @@ public class HTTPSession implements AutoCloseable
     public void
     setAuthStore(HTTPAuthStore store)
     {
-       if(store == null) store = HTTPAuthStore.getDefault();
-       this.authlocal = store;
+	if(store == null) store = HTTPAuthStore.getDefault();
+	this.authlocal = store;
     }
 
     public Settings getSettings()
@@ -1203,6 +1205,35 @@ public class HTTPSession implements AutoCloseable
     public int getMethodcount()
     {
         return methodList.size();
+    }
+
+    protected void ensureHttpClient()
+    {
+        if(this.cachedclient != null)
+            return;
+
+/*
+    ssl.TrustManagerFactory.algorithm
+    javax.net.ssl.trustStoreType
+    javax.net.ssl.trustStore
+    javax.net.ssl.trustStoreProvider
+    javax.net.ssl.trustStorePassword
+    ssl.KeyManagerFactory.algorithm
+    javax.net.ssl.keyStoreType
+    javax.net.ssl.keyStore
+    javax.net.ssl.keyStoreProvider
+    javax.net.ssl.keyStorePassword
+    https.protocols
+    https.cipherSuites
+    http.proxyHost
+    http.proxyPort
+    http.nonProxyHosts
+    http.keepAlive
+    http.maxConnections
+    http.agent
+*/
+
+
     }
 
     //////////////////////////////////////////////////

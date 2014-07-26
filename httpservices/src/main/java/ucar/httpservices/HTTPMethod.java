@@ -306,7 +306,6 @@ public class HTTPMethod implements AutoCloseable
     }
 
     //////////////////////////////////////////////////
-
     protected RequestConfig
     configure(HttpRequestBase request)
         throws HTTPException
