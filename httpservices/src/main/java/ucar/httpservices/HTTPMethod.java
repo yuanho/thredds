@@ -386,8 +386,8 @@ public class HTTPMethod implements AutoCloseable
         }
     }
 
-        //////////////////////////////////////////////////
-        // Accessors
+    //////////////////////////////////////////////////
+    // Accessors
 
     public int getStatusCode()
     {
