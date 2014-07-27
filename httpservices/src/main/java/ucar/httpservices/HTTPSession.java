@@ -1149,11 +1149,6 @@ public class HTTPSession implements AutoCloseable
         return methodList.size();
     }
 
-    protected void ensureHttpClient()
-    {
-        if(this.cachedclient != null)
-            return;
-
 /*
     ssl.TrustManagerFactory.algorithm
     javax.net.ssl.trustStoreType
@@ -1175,14 +1170,10 @@ public class HTTPSession implements AutoCloseable
     http.agent
 */
 
-
-    }
-
-    protected HttpClient
-    configureClient(Settings settings)
+    protected void
+    configClient(HttpClientBuilder cb, Settings settings)
         throws HTTPException
     {
-        HttpClientBuilder cb = HttpClients.custom();
         Object value = settings.getParameter(PROXY);
         if(value != null) {
             Proxy proxy = (Proxy) value;
@@ -1192,16 +1183,16 @@ public class HTTPSession implements AutoCloseable
                 cb.setRoutePlanner(routePlanner);
             }
         }
-        return cb.build();
+        setInterceptors(cb);
     }
 
-
-    protected RequestConfig
+    protected void
     configureRequest(HttpRequestBase request, Settings settings)
         throws HTTPException
     {
 
         RequestConfig.Builder rb = RequestConfig.custom();
+        // Configure the RequestConfig
         for(String key : settings.getNames()) {
             Object value = settings.getParameter(key);
             boolean tf = (value instanceof Boolean ? (Boolean) value : false);
@@ -1218,16 +1209,19 @@ public class HTTPSession implements AutoCloseable
                 rb.setSocketTimeout((Integer) value);
             } else if(key.equals(CONN_TIMEOUT)) {
                 rb.setConnectTimeout((Integer) value);
-                // NOTE: Following modifying request, not builder
-            } else if(key.equals(USER_AGENT)) {
+            } // else ignore
+        }
+        // Configure the request
+        request.setConfig(rb.build());
+        for(String key : settings.getNames()) {
+            Object value = settings.getParameter(key);
+            boolean tf = (value instanceof Boolean ? (Boolean) value : false);
+            if(key.equals(USER_AGENT)) {
                 request.setHeader(HEADER_USERAGENT, value.toString());
             } else if(key.equals(COMPRESSION)) {
                 request.setHeader(ACCEPT_ENCODING, value.toString());
-            } else {
-                throw new HTTPException("Unexpected setting name: " + key);
-            }
+            } // else ignore
         }
-        return rb.build();
     }
 
     protected Settings
@@ -1242,6 +1236,44 @@ public class HTTPSession implements AutoCloseable
             merge.setParameter(key, localsettings.getParameter(key));
         }
         return merge;
+    }
+
+    /**
+     * Handle authentication.
+     * We do not know, necessarily,
+     * which scheme(s) will be
+     * encountered, so most testing
+     * occurs in HTTPAuthProvider
+     *
+     * @return an authprovider encapsulting the request
+     */
+
+    synchronized protected void
+    setAuthentication(HttpClientContext context)
+        throws HTTPException
+    {
+        // Creat a authscope from the url
+        String[] principalp = new String[1];
+        if(this.cachedURI == null)
+            this.cachedscope = HTTPAuthScope.ANY;
+        else
+            this.cachedscope = HTTPAuthScope.uriToScope(HTTPAuthPolicy.BASIC, this.cachedURI, principalp);
+
+        // Provide a credentials (provider) to enact the process
+        // We use the a caching instance so we can intercept getCredentials
+        // requests to check the cache.
+        // Changes in httpclient 4.3 may make this simpler, but for now, leave alone
+
+        HTTPCachingProvider hap = new HTTPCachingProvider(this.getAuthStore(), this.cachedscope, principalp[0]);
+
+        // New in httpclient 4.3
+        context.setCredentialsProvider(hap);
+    }
+
+    protected HttpHost
+    httpHostFor(URI uri)
+    {
+        return new HttpHost(uri.getHost(), uri.getPort(), uri.getScheme());
     }
 
     //////////////////////////////////////////////////
