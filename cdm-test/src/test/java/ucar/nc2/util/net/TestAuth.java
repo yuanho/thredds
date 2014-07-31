@@ -591,10 +591,6 @@ public class TestAuth extends UnitTestCommon
         Credentials cred2 = new UsernamePasswordCredentials("u2", "pwd2");
         AuthScope scope;
         String testurl1 =
-                //no longer exists: "http://ceda.ac.uk/dap/neodc/casix/seawifs_plankton/data/monthly/PSC_monthly_1998.nc.dds",
-                "https://" + TestDir.remoteTestServer + "/dts/b31.dds";
-        String testurl2 =
-                "http://ceda.ac.uk";
         scope = new AuthScope(testurl1, AuthScope.ANY_PORT, AuthScope.ANY_REALM, HTTPAuthPolicy.BASIC);
 
         // Add some entries to an HTTPAuthStore
