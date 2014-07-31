@@ -195,6 +195,7 @@ public class HTTPSession implements AutoCloseable
     {
         public String host = null;
         public int port = -1;
+        public String userpwd = null;
     }
 
     static enum Methods
@@ -335,49 +336,20 @@ public class HTTPSession implements AutoCloseable
     static List<HttpRequestInterceptor> reqintercepts = new ArrayList<HttpRequestInterceptor>();
     static List<HttpResponseInterceptor> rspintercepts = new ArrayList<HttpResponseInterceptor>();
 
+    static protected KeyStore keystore = null;
+    static protected KeyStore truststore = null;
+    static protected String keypassword = null;
+    static protected String trustpassword = null;
+
     static {
         // re: http://stackoverflow.com/a/19950935/444687
         // and http://stackoverflow.com/a/20491564/444687
         SSLContextBuilder builder = SSLContexts.custom();
         try {
-            builder.loadTrustMaterial(null, new TrustStrategy()
-            {
-                @Override
-                public boolean isTrusted(X509Certificate[] chain, String authType)
-                    throws CertificateException
-                {
-                    return true;
-                }
-            });
-
+            builder.loadTrustMaterial(null, new CustomTrustStrategy());
             SSLContext sslContext = builder.build();
-            SSLConnectionSocketFactory sslsf = new SSLConnectionSocketFactory(
-                sslContext, new X509HostnameVerifier()
-            {
-                @Override
-                public void verify(String host, SSLSocket ssl)
-                    throws IOException
-                {
-                }
-
-                @Override
-                public void verify(String host, X509Certificate cert)
-                    throws SSLException
-                {
-                }
-
-                @Override
-                public void verify(String host, String[] cns,
-                                   String[] subjectAlts) throws SSLException
-                {
-                }
-
-                @Override
-                public boolean verify(String s, SSLSession sslSession)
-                {
-                    return true;
-                }
-            });
+            X509HostnameVerifier hv509 = new CustomX509HostNameVerifier();
+            SSLConnectionSocketFactory sslsf = new CustomSSLSocketFactory(sslContext, hv509);
             Registry<ConnectionSocketFactory> r =
                 RegistryBuilder.<ConnectionSocketFactory>create()
                     .register("https", sslsf)
@@ -399,7 +371,11 @@ public class HTTPSession implements AutoCloseable
         setGlobalConnectionTimeout(DFALTCONNTIMEOUT);
         setGlobalSoTimeout(DFALTSOTIMEOUT);
         getGlobalProxyD(); // get info from -D if possible
-        setGlobalKeyStore();
+        try {
+            setGlobalKeyStore();
+        } catch (HTTPException he) {
+            System.err.println("Global Key/Trust Store exception:"+he);
+        }
     }
 
     //////////////////////////////////////////////////////////////////////////
@@ -476,11 +452,12 @@ public class HTTPSession implements AutoCloseable
     // Proxy
 
     static synchronized public void
-    setGlobalProxy(String host, int port)
+    setGlobalProxy(String host, int port, String userpwd)
     {
         Proxy proxy = new Proxy();
         proxy.host = host;
         proxy.port = port;
+        proxy.userpwd = userpwd; // null if not authenticating
         globalsettings.setParameter(PROXY, proxy);
     }
 
@@ -672,26 +649,6 @@ public class HTTPSession implements AutoCloseable
         return value;
     }
 
-    // Provide for backward compatibility
-    // through the -D properties
-
-    static synchronized void
-    setGlobalKeyStore()
-    {
-        String keypassword = cleanproperty("keystorepassword");
-        String keypath = cleanproperty("keystore");
-        String trustpassword = cleanproperty("truststorepassword");
-        String trustpath = cleanproperty("truststore");
-
-        if(keypath != null || trustpath != null) { // define conditionally
-            HTTPSSLProvider sslprovider = new HTTPSSLProvider(keypath, keypassword,
-                trustpath, trustpassword);
-            setGlobalCredentialsProvider(
-                new AuthScope(ANY_HOST, ANY_PORT, ANY_REALM, HTTPAuthPolicy.SSL),
-                sslprovider);
-        }
-    }
-
     // For backward compatibility, provide
     // programmatic access for setting proxy info
     // Extract proxy info from command line -D parameters
@@ -702,6 +659,7 @@ public class HTTPSession implements AutoCloseable
     {
         String host = System.getProperty("http.proxyHost");
         String port = System.getProperty("http.proxyPort");
+        String userpwd = System.getProperty("http.proxyAuth");// in url form user:pwd
         int portno = -1;
 
         if(host != null) {
@@ -718,14 +676,18 @@ public class HTTPSession implements AutoCloseable
                 }
             }
         }
-
-        if(host != null)
-            setGlobalProxy(host, portno);
+        Credentials creds = null;
+        if(userpwd != null) {
+            userpwd = userpwd.trim();
+            if(userpwd.length() > 0 && userpwd.indexOf(':') > 0) {
+            if(host != null)
+                setGlobalProxy(host, portno, userpwd);
+            }
+        }
     }
 
     //////////////////////////////////////////////////
     // Instance variables
-
 
     protected List<ucar.httpservices.HTTPMethod> methodList = new Vector<HTTPMethod>();
     protected String identifier = "Session";
@@ -740,6 +702,7 @@ public class HTTPSession implements AutoCloseable
     protected CloseableHttpClient cachedclient = null;
     protected AuthScope cachedscope = null;
     protected URI cachedURI = null;
+    protected HttpClientContext cachedcxt = null;
 
     //////////////////////////////////////////////////
     // Constructor(s)
@@ -886,11 +849,12 @@ public class HTTPSession implements AutoCloseable
     // External API
 
     public void
-    setProxy(String host, int port)
+    setProxy(String host, int port, String userpwd /*user:pwd*/)
     {
         Proxy proxy = new Proxy();
         proxy.host = host;
         proxy.port = port;
+        proxy.userpwd = userpwd;
         setProxy(proxy);
     }
 
@@ -966,16 +930,19 @@ public class HTTPSession implements AutoCloseable
         synchronized (this) {// keep coverity happy
             merged = merge(globalsettings, localsettings);
         }
-        configureRequest(request, merged);
+        RequestConfig.Builder rb = RequestConfig.custom();
+        configureRequest(request, rb, merged);
         HttpClientBuilder cb = HttpClients.custom();
-        HttpClientContext cc = HttpClientContext.create();
+        if(this.cachedcxt == null)
+            this.cachedcxt = HttpClientContext.create();
         configClient(cb, merged);
-        setAuthentication(cc);
+        setAuthentication(cb, rb, merged);
         HttpHost target = httpHostFor(this.cachedURI);
         this.cachedclient = cb.build();
+        request.setConfig(rb.build());
         CloseableHttpResponse response;
         try {
-            response = cachedclient.execute(target, request, cc);
+            response = cachedclient.execute(target, request, this.cachedcxt);
         } catch (IOException ioe) {
             throw new HTTPException(ioe);
         }
@@ -1013,24 +980,14 @@ public class HTTPSession implements AutoCloseable
     configClient(HttpClientBuilder cb, Settings settings)
         throws HTTPException
     {
-        Object value = settings.getParameter(PROXY);
-        if(value != null) {
-            Proxy proxy = (Proxy) value;
-            if(proxy.host != null) {
-                HttpHost httpproxy = new HttpHost(proxy.host, proxy.port);
-                DefaultProxyRoutePlanner routePlanner = new DefaultProxyRoutePlanner(httpproxy);
-                cb.setRoutePlanner(routePlanner);
-            }
-        }
+
         setInterceptors(cb);
     }
 
     protected void
-    configureRequest(HttpRequestBase request, Settings settings)
+    configureRequest(HttpRequestBase request, RequestConfig.Builder rb, Settings settings)
         throws HTTPException
     {
-
-        RequestConfig.Builder rb = RequestConfig.custom();
         // Configure the RequestConfig
         for(String key : settings.getNames()) {
             Object value = settings.getParameter(key);
@@ -1050,8 +1007,7 @@ public class HTTPSession implements AutoCloseable
                 rb.setConnectTimeout((Integer) value);
             } // else ignore
         }
-        // Configure the request
-        request.setConfig(rb.build());
+        // Configure the request directly
         for(String key : settings.getNames()) {
             Object value = settings.getParameter(key);
             boolean tf = (value instanceof Boolean ? (Boolean) value : false);
@@ -1088,7 +1044,7 @@ public class HTTPSession implements AutoCloseable
      */
 
     synchronized protected void
-    setAuthentication(HttpClientContext context)
+    setAuthentication(HttpClientBuilder cb, RequestConfig.Builder rb, Settings settings)
         throws HTTPException
     {
         // Creat a authscope from the url
@@ -1104,9 +1060,55 @@ public class HTTPSession implements AutoCloseable
         // Changes in httpclient 4.3 may make this simpler, but for now, leave alone
 
         HTTPCachingProvider hap = new HTTPCachingProvider(this.getAuthStore(), this.cachedscope, principalp[0]);
+        cb.setDefaultCredentialsProvider(hap);
 
-        // New in httpclient 4.3
-        context.setCredentialsProvider(hap);
+        // Handle proxy, including proxy auth.
+        Object value = settings.getParameter(PROXY);
+        if(value != null) {
+            Proxy proxy = (Proxy) value;
+            if(proxy.host != null) {
+                HttpHost httpproxy = new HttpHost(proxy.host, proxy.port);
+                // Not clear which is the correct approach
+                if(false) {
+                    DefaultProxyRoutePlanner routePlanner = new DefaultProxyRoutePlanner(httpproxy);
+                    cb.setRoutePlanner(routePlanner);
+                } else {
+                    rb.setProxy(httpproxy);
+                }
+                // Add any proxy credentials
+                if(proxy.userpwd != null) {
+                    AuthScope scope = new AuthScope(httpproxy);
+                    hap.setCredentials(scope, new UsernamePasswordCredentials(proxy.userpwd));
+                }
+
+            }
+        }
+
+        try {
+            if(truststore != null || keystore != null) {
+                SSLContextBuilder builder = SSLContexts.custom();
+                if(truststore != null) {
+                    builder.loadTrustMaterial(truststore,
+                        new TrustSelfSignedStrategy());
+                }
+                if(keystore != null) {
+                    builder.loadKeyMaterial(keystore, keypassword.toCharArray());
+                }
+                SSLContext sslcxt = builder.build();
+                SSLConnectionSocketFactory sslsf = new SSLConnectionSocketFactory(sslcxt);
+
+                cb.setSSLSocketFactory(sslsf);
+
+            }
+        } catch (KeyStoreException ke) {
+            throw new HTTPException(ke);
+        } catch (NoSuchAlgorithmException nsae) {
+            throw new HTTPException(nsae);
+        } catch (KeyManagementException kme) {
+            throw new HTTPException(kme);
+        }  catch (UnrecoverableEntryException uee) {
+            throw new HTTPException(uee);
+        }
     }
 
     protected HttpHost
@@ -1228,4 +1230,49 @@ public class HTTPSession implements AutoCloseable
         return null;
     }
 
+    //////////////////////////////////////////////////
+    // KeyStore Management
+
+    // Provide for backward compatibility
+    // through the -D properties
+
+    static synchronized void
+    setGlobalKeyStore()
+        throws HTTPException
+    {
+        String keypassword = cleanproperty("keystorepassword");
+        String keypath = cleanproperty("keystore");
+        String trustpassword = cleanproperty("truststorepassword");
+        String trustpath = cleanproperty("truststore");
+        try {
+            if(keypath != null || trustpath != null) { // define conditionally
+                // Load the stores
+                truststore = KeyStore.getInstance(KeyStore.getDefaultType());
+                FileInputStream instream = new FileInputStream(new File(trustpath));
+                try {
+                    truststore.load(instream, trustpassword.toCharArray());
+                } finally {
+                    instream.close();
+                }
+                keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+                instream = new FileInputStream(new File(keypath));
+                try {
+                    keystore.load(instream, keypassword.toCharArray());
+                } finally {
+                    instream.close();
+                }
+                HTTPSession.keypassword = keypassword;
+                HTTPSession.trustpassword = trustpassword;
+            }
+        } catch (IOException ioe) {
+            throw new HTTPException(ioe);
+        } catch (NoSuchAlgorithmException nsae) {
+            throw new HTTPException(nsae);
+        } catch (CertificateException ce) {
+            throw new HTTPException(ce);
+        } catch (KeyStoreException ke) {
+            throw new HTTPException(ke);
+        }
+
+    }
 }
