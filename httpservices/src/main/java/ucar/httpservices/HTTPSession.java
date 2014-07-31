@@ -1187,11 +1187,9 @@ public class HTTPSession implements AutoCloseable
     }
 
     protected void
-    configureRequest(HttpRequestBase request, Settings settings)
+    configureRequest(HttpRequestBase request, RequestConfig.Builder rb, Settings settings)
         throws HTTPException
     {
-
-        RequestConfig.Builder rb = RequestConfig.custom();
         // Configure the RequestConfig
         for(String key : settings.getNames()) {
             Object value = settings.getParameter(key);
@@ -1211,8 +1209,7 @@ public class HTTPSession implements AutoCloseable
                 rb.setConnectTimeout((Integer) value);
             } // else ignore
         }
-        // Configure the request
-        request.setConfig(rb.build());
+        // Configure the request directly
         for(String key : settings.getNames()) {
             Object value = settings.getParameter(key);
             boolean tf = (value instanceof Boolean ? (Boolean) value : false);
@@ -1249,7 +1246,7 @@ public class HTTPSession implements AutoCloseable
      */
 
     synchronized protected void
-    setAuthentication(HttpClientContext context)
+    setAuthentication(HttpClientBuilder cb, RequestConfig.Builder rb, Settings settings)
         throws HTTPException
     {
         // Creat a authscope from the url
@@ -1265,9 +1262,55 @@ public class HTTPSession implements AutoCloseable
         // Changes in httpclient 4.3 may make this simpler, but for now, leave alone
 
         HTTPCachingProvider hap = new HTTPCachingProvider(this.getAuthStore(), this.cachedscope, principalp[0]);
+        cb.setDefaultCredentialsProvider(hap);
 
-        // New in httpclient 4.3
-        context.setCredentialsProvider(hap);
+        // Handle proxy, including proxy auth.
+        Object value = settings.getParameter(PROXY);
+        if(value != null) {
+            Proxy proxy = (Proxy) value;
+            if(proxy.host != null) {
+                HttpHost httpproxy = new HttpHost(proxy.host, proxy.port);
+                // Not clear which is the correct approach
+                if(false) {
+                    DefaultProxyRoutePlanner routePlanner = new DefaultProxyRoutePlanner(httpproxy);
+                    cb.setRoutePlanner(routePlanner);
+                } else {
+                    rb.setProxy(httpproxy);
+                }
+                // Add any proxy credentials
+                if(proxy.userpwd != null) {
+                    AuthScope scope = new AuthScope(httpproxy);
+                    hap.setCredentials(scope, new UsernamePasswordCredentials(proxy.userpwd));
+                }
+
+            }
+        }
+
+        try {
+            if(truststore != null || keystore != null) {
+                SSLContextBuilder builder = SSLContexts.custom();
+                if(truststore != null) {
+                    builder.loadTrustMaterial(truststore,
+                        new TrustSelfSignedStrategy());
+                }
+                if(keystore != null) {
+                    builder.loadKeyMaterial(keystore, keypassword.toCharArray());
+                }
+                SSLContext sslcxt = builder.build();
+                SSLConnectionSocketFactory sslsf = new SSLConnectionSocketFactory(sslcxt);
+
+                cb.setSSLSocketFactory(sslsf);
+
+            }
+        } catch (KeyStoreException ke) {
+            throw new HTTPException(ke);
+        } catch (NoSuchAlgorithmException nsae) {
+            throw new HTTPException(nsae);
+        } catch (KeyManagementException kme) {
+            throw new HTTPException(kme);
+        }  catch (UnrecoverableEntryException uee) {
+            throw new HTTPException(uee);
+        }
     }
 
     protected HttpHost
