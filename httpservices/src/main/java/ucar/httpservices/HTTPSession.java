@@ -319,6 +319,7 @@ public class HTTPSession implements AutoCloseable
         }
     }
 
+
     ////////////////////////////////////////////////////////////////////////
     // Static variables
 
@@ -736,6 +737,7 @@ public class HTTPSession implements AutoCloseable
 
     //////////////////////////////////////////////////
     // Interceptors
+    static protected HttpResponseInterceptor CEKILL = new HTTPUtil.ContentEncodingInterceptor();
 
     synchronized protected void
     setInterceptors(HttpClientBuilder cb)
@@ -744,6 +746,8 @@ public class HTTPSession implements AutoCloseable
             cb.addInterceptorLast(hrq);
         for(HttpResponseInterceptor hrs : rspintercepts)
             cb.addInterceptorLast(hrs);
+        // Hack: add Content-Encoding suppressor
+        cb.addInterceptorFirst(CEKILL);
     }
 
     //////////////////////////////////////////////////
