@@ -261,9 +261,6 @@ public class DConnect2
             if(allowSessions)
                 method.setRequestHeader("X-Accept-Session", "true");
 
-            int tries = 3;
-            boolean tryagain = true;
-            do {
                 int statusCode = method.execute();
 
                 // debug
