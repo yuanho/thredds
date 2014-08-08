@@ -199,6 +199,11 @@ public class HTTPSession implements AutoCloseable
         {
             super.put(param, value);
         }
+
+        public Object removeParameter(String param)
+        {
+            return super.remove(param);
+        }
     }
 
     static class Proxy
@@ -343,14 +348,12 @@ public class HTTPSession implements AutoCloseable
     static protected Settings globalsettings;
     static protected PoolingHttpClientConnectionManager connmgr;
 
-    // We currently only allow the use of global interceptors
-    static protected List<HttpRequestInterceptor> reqintercepts = new ArrayList<HttpRequestInterceptor>();
-    static protected List<HttpResponseInterceptor> rspintercepts = new ArrayList<HttpResponseInterceptor>();
-
     static protected KeyStore keystore = null;
     static protected KeyStore truststore = null;
     static protected String keypassword = null;
     static protected String trustpassword = null;
+
+    static protected Boolean globaldebugheaders = null;
 
     static {
         // re: http://stackoverflow.com/a/19950935/444687
@@ -481,17 +484,6 @@ public class HTTPSession implements AutoCloseable
         globalsettings.setParameter(PROXY, proxy);
     }
 
-    // Misc.
-
-    static synchronized public void
-    setGlobalCompression()
-    {
-        globalsettings.setParameter(COMPRESSION, "gzip,deflate");
-        HttpResponseInterceptor hrsi = new GZIPResponseInterceptor();
-        rspintercepts.add(hrsi);
-        hrsi = new DeflateResponseInterceptor();
-        rspintercepts.add(hrsi);
-    }
 
     // Authorization
 
@@ -710,6 +702,18 @@ public class HTTPSession implements AutoCloseable
         }
     }
 
+    static synchronized public void
+    setGlobalDebugHeaders(boolean print)
+    {
+        globaldebugheaders = new Boolean(print);
+    }
+
+    static synchronized public void
+    resetGlobalDebugHeaders()
+    {
+        globaldebugheaders = null;
+    }
+
     //////////////////////////////////////////////////
     // Instance variables
 
@@ -721,6 +725,10 @@ public class HTTPSession implements AutoCloseable
     protected HTTPAuthStore authlocal =  HTTPAuthStore.getDefault();
     // We currently only allow the use of global interceptors
     protected List<Object> intercepts = new ArrayList<Object>(); // current set of interceptors;
+
+    // We currently only allow the use of HTTPSession instance interceptors
+    protected List<HttpRequestInterceptor> reqintercepts = new ArrayList<HttpRequestInterceptor>();
+    protected List<HttpResponseInterceptor> rspintercepts = new ArrayList<HttpResponseInterceptor>();
 
     // cached and recreated as needed
     protected CloseableHttpClient cachedclient = null;
@@ -762,7 +770,30 @@ public class HTTPSession implements AutoCloseable
     // Interceptors
     static protected HttpResponseInterceptor CEKILL = new HTTPUtil.ContentEncodingInterceptor();
 
-    synchronized protected void
+    public void
+    setAllowCompression()
+    {
+        localsettings.setParameter(COMPRESSION, "gzip,deflate");
+        HttpResponseInterceptor hrsi = new GZIPResponseInterceptor();
+        rspintercepts.add(hrsi);
+        hrsi = new DeflateResponseInterceptor();
+        rspintercepts.add(hrsi);
+    }
+
+    public void
+    removeCompression()
+    {
+        if(localsettings.removeParameter(COMPRESSION) != null) {
+            for(int i = rspintercepts.size() - 1; i >= 0; i--) { // walk backwards
+                HttpResponseInterceptor hrsi = rspintercepts.get(i);
+                if(hrsi instanceof GZIPResponseInterceptor
+                        || hrsi instanceof DeflateResponseInterceptor)
+                    rspintercepts.remove(i);
+            }
+        }
+    }
+
+    protected void
     setInterceptors(HttpClientBuilder cb)
     {
         for(HttpRequestInterceptor hrq : reqintercepts) {
@@ -1018,7 +1049,7 @@ public class HTTPSession implements AutoCloseable
     {
         setInterceptors(cb);
         // Set retries
-        cb.setRetryHandler(new DefaultHttpRequestRetryHandler(DFALTRETRIES,false));
+        cb.setRetryHandler(new DefaultHttpRequestRetryHandler(DFALTRETRIES, false));
         cb.setServiceUnavailableRetryStrategy(new DefaultServiceUnavailableRetryStrategy(DFALTUNAVAILRETRIES, DFALTUNAVAILINTERVAL));
     }
 
@@ -1428,7 +1459,7 @@ public class HTTPSession implements AutoCloseable
         rspintercepts.add(rs);
     }
 
-    public static void
+    public void
     debugReset()
     {
         for(HttpRequestInterceptor hri : reqintercepts) {
@@ -1437,7 +1468,7 @@ public class HTTPSession implements AutoCloseable
         }
     }
 
-    public static HTTPUtil.InterceptRequest
+    public HTTPUtil.InterceptRequest
     debugRequestInterceptor()
     {
         for(HttpRequestInterceptor hri : reqintercepts) {
@@ -1447,7 +1478,7 @@ public class HTTPSession implements AutoCloseable
         return null;
     }
 
-    public static HTTPUtil.InterceptResponse
+    public HTTPUtil.InterceptResponse
     debugResponseInterceptor()
     {
         for(HttpResponseInterceptor hri : rspintercepts) {
