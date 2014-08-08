@@ -151,7 +151,7 @@ public class TestAuth extends UnitTestCommon
         {
             UsernamePasswordCredentials creds = new UsernamePasswordCredentials(username, password);
             System.err.printf("TestCredentials.getCredentials called: creds=|%s| host=%s port=%d%n",
-                creds.toString(), scope.getHost(), scope.getPort());
+                    creds.toString(), scope.getHost(), scope.getPort());
             this.callcount++;
             return creds;
         }
@@ -166,14 +166,14 @@ public class TestAuth extends UnitTestCommon
 
         // Serializable Interface
         private void writeObject(java.io.ObjectOutputStream oos)
-            throws IOException
+                throws IOException
         {
             oos.writeObject(this.username);
             oos.writeObject(this.password);
         }
 
         private void readObject(java.io.ObjectInputStream ois)
-            throws IOException, ClassNotFoundException
+                throws IOException, ClassNotFoundException
         {
             this.username = (String) ois.readObject();
             this.password = (String) ois.readObject();
@@ -425,7 +425,7 @@ public class TestAuth extends UnitTestCommon
             if(removed.size() == 1) {
                 HTTPCachingProvider.Triple triple = removed.get(0);
                 pass = (triple.scope.getScheme().equals(HTTPAuthPolicy.BASIC.toUpperCase())
-                    && triple.creds instanceof UsernamePasswordCredentials);
+                        && triple.creds instanceof UsernamePasswordCredentials);
             } else
                 pass = false;
 

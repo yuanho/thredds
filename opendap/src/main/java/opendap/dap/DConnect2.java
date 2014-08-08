@@ -261,10 +261,10 @@ public class DConnect2
             if(allowSessions)
                 method.setRequestHeader("X-Accept-Session", "true");
 
-                int statusCode = method.execute();
+            int statusCode = method.execute();
 
-                // debug
-                // if (debugHeaders) ucar.httpservices.HttpClientManager.showHttpRequestInfo(f, method);
+            // debug
+            // if (debugHeaders) ucar.httpservices.HttpClientManager.showHttpRequestInfo(f, method);
 
             switch (statusCode) {
             case HttpStatus.SC_OK:
