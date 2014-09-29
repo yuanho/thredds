@@ -48,7 +48,7 @@ netcdf test_atomic_types.nc {
       :_DAP4_Checksum_CRC32 = "0xd0a19233";
 
     opaque vo;
-      :_DAP4_Checksum_CRC32 = "0xd0d142d3";
+      :_DAP4_Checksum_CRC32 = "0x60d12263";
 
     enum cloud_class_t primary_cloud;
       :_FillValue = "Missing";
@@ -73,7 +73,7 @@ vf =3.1415927
 vd =3.141592653589793
 vc =@
 vs =  "hello	world"
-vo =  0x0123456789abcdef;
+vo =  0x00;
 
 primary_cloud =2
 secondary_cloud =127
