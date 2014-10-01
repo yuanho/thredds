@@ -126,7 +126,7 @@ public class CDMDSP extends AbstractDSP
         if(this.context == null || (this.factory = (DapFactory) this.context.get(FACTORYKEY)) == null)
             this.factory = new DapFactoryDMR();
         //if(ncfile instanceof NetcdfDataset)
-         //   ncdfile = (NetcdfDataset) ncfile;
+        //   ncdfile = (NetcdfDataset) ncfile;
         //else
         try {
             ncdfile = new NetcdfDataset(ncfile, ENHANCEMENT);
@@ -916,7 +916,7 @@ public class CDMDSP extends AbstractDSP
     {
         // Search on the full name, but be careful,
         // the rule is that the declared dimension's fqn
-        // must be a prefix of the dimension reference.                               b
+        // must be a prefix of the dimension reference.
         for(Map.Entry<DapNode, CDMNode> entry : nodemap.getCDMMap().entrySet()) {
             if(entry.getValue().getSort() != CDMSort.DIMENSION)
                 continue;
