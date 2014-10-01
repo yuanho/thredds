@@ -124,7 +124,6 @@ public class DapTestCommon extends TestCase
 
     //////////////////////////////////////////////////
     // Instance variables
-<<<<<<< HEAD
 
     // System properties
     protected boolean prop_ascii = true;
@@ -135,18 +134,6 @@ public class DapTestCommon extends TestCase
     protected boolean prop_generate = true;
     protected String prop_controls = null;
 
-=======
-
-    // System properties
-    protected boolean prop_ascii = true;
-    protected boolean prop_diff = true;
-    protected boolean prop_baseline = false;
-    protected boolean prop_visual = false;
-    protected boolean prop_debug = DEBUG;
-    protected boolean prop_generate = true;
-    protected String prop_controls = null;
-
->>>>>>> test
     // Define a tree pattern to recognize the root.
     protected String threddsroot = null;
     protected String dap4root = null;
