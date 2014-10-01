@@ -22,7 +22,7 @@ public class DapTestCommon extends TestCase
     //////////////////////////////////////////////////
     // Constants
 
-    static final boolean DEBUG = true;
+    static final boolean DEBUG = false;
 
     static protected final Charset UTF8 = Charset.forName("UTF-8");
 
@@ -40,6 +40,7 @@ public class DapTestCommon extends TestCase
     // Static variables
 
     static public org.slf4j.Logger log;
+
 
     //////////////////////////////////////////////////
     // Static methods
@@ -123,6 +124,7 @@ public class DapTestCommon extends TestCase
 
     //////////////////////////////////////////////////
     // Instance variables
+<<<<<<< HEAD
 
     // System properties
     protected boolean prop_ascii = true;
@@ -133,6 +135,18 @@ public class DapTestCommon extends TestCase
     protected boolean prop_generate = true;
     protected String prop_controls = null;
 
+=======
+
+    // System properties
+    protected boolean prop_ascii = true;
+    protected boolean prop_diff = true;
+    protected boolean prop_baseline = false;
+    protected boolean prop_visual = false;
+    protected boolean prop_debug = DEBUG;
+    protected boolean prop_generate = true;
+    protected String prop_controls = null;
+
+>>>>>>> test
     // Define a tree pattern to recognize the root.
     protected String threddsroot = null;
     protected String dap4root = null;
@@ -150,6 +164,25 @@ public class DapTestCommon extends TestCase
         this.title = name;
         setSystemProperties();
         initPaths();
+    }
+
+    protected void
+    initPaths()
+    {
+        // Compute the root path
+        this.threddsroot = locateThreddsRoot();
+        if(this.threddsroot != null)
+            this.dap4root = this.threddsroot + "/" + DEFAULTTREEROOT;
+        // Compute the set of SOURCES
+        this.d4tsServer = TestDir.dap4TestServer;
+        if(DEBUG) {
+            System.err.println("DapTestCommon: d4tsServer=" + d4tsServer);
+        }
+    }
+
+    public String getDAP4Root()
+    {
+        return dap4root;
     }
 
     protected void
