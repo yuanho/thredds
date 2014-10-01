@@ -312,6 +312,10 @@ public class DapTestCommon extends TestCase
     findServer(String path)
             throws DapException
     {
+        if(DEBUG) {
+            System.err.println("findserver: path="+path);
+            System.err.println("findserver: d4tsServer="+d4tsServer);
+        }
         if(d4tsServer.startsWith("file:")) {
             d4tsServer = FILESERVER + "/" + path;
         } else {
