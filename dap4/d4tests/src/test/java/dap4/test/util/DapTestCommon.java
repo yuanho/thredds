@@ -41,6 +41,9 @@ public class DapTestCommon extends TestCase
 
     static public org.slf4j.Logger log;
 
+    //////////////////////////////////////////////////
+    // Static methods
+
     // Walk around the directory structure to locate
     // the path to the thredds root (which may not
     // be names "thredds").
@@ -312,10 +315,6 @@ public class DapTestCommon extends TestCase
     findServer(String path)
             throws DapException
     {
-        if(DEBUG) {
-            System.err.println("findserver: path="+path);
-            System.err.println("findserver: d4tsServer="+d4tsServer);
-        }
         if(d4tsServer.startsWith("file:")) {
             d4tsServer = FILESERVER + "/" + path;
         } else {
