@@ -22,7 +22,7 @@ public class DapTestCommon extends TestCase
     //////////////////////////////////////////////////
     // Constants
 
-    static final boolean DEBUG = false;
+    static final boolean DEBUG = true;
 
     static protected final Charset UTF8 = Charset.forName("UTF-8");
 
