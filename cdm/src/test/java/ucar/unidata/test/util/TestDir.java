@@ -95,6 +95,12 @@ public class TestDir {
 
   static public String dap2TestServer = "remotetest.unidata.ucar.edu";
 
+  // DAP 2 Test server (for testing)
+
+  static public String dap2TestServerPropName = "dts";
+
+  static public String dap2TestServer = "remotetest.unidata.ucar.edu";
+
   // DAP4 Test server (for testing)
 
   static public String dap4TestServerPropName = "d4ts";
@@ -157,6 +163,10 @@ public class TestDir {
 		threddsTestServer = rts;
 
     String dts = System.getProperty(dap2TestServerPropName);
+      if(dts != null && dts.length() > 0)
+            dap2TestServer = dts;
+
+    String dts = System.getProperty(dap4TestServerPropName);
       if(dts != null && dts.length() > 0)
             dap2TestServer = dts;
 
