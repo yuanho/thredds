@@ -976,7 +976,7 @@ public class CDMDSP extends AbstractDSP
         } else if(o instanceof String) {
             o = o.toString();
         } else if(o instanceof ByteBuffer) {
-            // leave it unchanged
+            // leave it unchanged                                                   b
         } else if(o instanceof byte[]) {
             o = ByteBuffer.wrap((byte[]) o);
         } else if(o instanceof Byte[]) {
