@@ -924,8 +924,6 @@ public class OpendapServlet extends AbstractServlet {
 
     NetcdfFile ncd = DatasetHandler.getNetcdfFile(req, preq.getResponse(), reqPath);
     if (null == ncd) return null;
-    System.err.println("targetfile="+ncd.getLocation());
-    System.err.flush();
 
     GuardedDataset gdataset = new GuardedDatasetCacheAndClone(reqPath, ncd, acceptSession);
     //GuardedDataset gdataset = new GuardedDatasetImpl(reqPath, ncd, acceptSession);
