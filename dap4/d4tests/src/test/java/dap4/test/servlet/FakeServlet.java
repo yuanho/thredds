@@ -32,7 +32,7 @@ public class FakeServlet extends D4TSServlet
     // Define the prefix of the URL file that refers to the servlet
     String servletpath = "/" + DEFAULTSERVLETNAME;
 
-    String datasetpath = null;   // absolute path to the directory containing datasets
+    String realresourcespath = null;   // absolute path to the directory containing datasets (typically .../resources)
 
     //////////////////////////////////////////////////
     // Constructor(s)
@@ -40,7 +40,7 @@ public class FakeServlet extends D4TSServlet
     public FakeServlet(String datasetpath)
     {
         datasetpath = DapUtil.canonicalpath(datasetpath);
-        this.datasetpath = datasetpath;
+        this.realresourcespath = datasetpath;
     }
 
     //////////////////////////////////////////////////
@@ -115,7 +115,7 @@ public class FakeServlet extends D4TSServlet
         String suffix2 = suffix.substring("/WEB-INF".length(),suffix.length());
         suffix2 = DapUtil.absolutize(suffix);
         // Assume it is relative to datasetpath
-        String root = datasetpath + suffix2;
+        String root = realresourcespath + suffix2;
         File f = new File(root);
         if(!f.exists() || !f.isDirectory())
             return null;
@@ -166,14 +166,8 @@ public class FakeServlet extends D4TSServlet
     {
         path = DapUtil.canonicalpath(path); // clean and make relative
         path = DapUtil.absolutize(path);
-        // Assume path starts with /WEB-INF
-        if(!path.startsWith("/WEB-INF"))
-            return null;
-        path = path.substring("/WEB-INF".length(),path.length());
-        path = DapUtil.absolutize(path);
-
         // Assume it is relative to datasetpath
-        path = datasetpath + path;
+        path = realresourcespath + path;
         return path;
     }
 

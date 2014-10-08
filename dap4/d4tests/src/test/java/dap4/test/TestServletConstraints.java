@@ -26,10 +26,12 @@ public class TestServletConstraints extends DapTestCommon
     //////////////////////////////////////////////////
     // Constants
 
-    static String DATADIR = "d4tests/src/test/data"; // relative to dap4 root
-    static String TESTDATADIR = DATADIR + "/resources/";
-    static String BASELINEDIR = DATADIR + "/resources/TestServletConstraints/baseline";
-    static String TESTINPUTDIR = DATADIR + "/resources/testfiles";
+    static protected String RESOURCEDIR = "/WEB-INF/resources";
+    static protected String TESTINPUTDIR = RESOURCEDIR + "/testfiles";
+
+    static protected String BASELINEDIR =  "/d4tests/src/test/data/resources/TestServletConstraints/baseline";
+    static protected String GENERATEDIR =  "/d4tests/src/test/data/resources/TestCDMClient/testinput";
+
 
     // constants for Fake Request
     static String FAKEURLPREFIX = "http://localhost:8080/d4ts";
@@ -41,7 +43,17 @@ public class TestServletConstraints extends DapTestCommon
 
     static class ConstraintTest
     {
-        static String root = null;
+        static String inputroot = null;
+        static String baselineroot = null;
+        static String generateroot = null;
+
+        static public void
+        setRoots(String input, String baseline, String generate)
+        {
+            inputroot = input;
+            baselineroot = baseline;
+            generateroot = generate;
+        }
 
         static ConstraintTest[] alltests;
 
@@ -58,6 +70,7 @@ public class TestServletConstraints extends DapTestCommon
         Dump.Commands template;
         String testinputpath;
         String baselinepath;
+        String generatepath;
         int id;
 
         ConstraintTest(int id, String dataset, String extensions, String ce)
@@ -84,9 +97,11 @@ public class TestServletConstraints extends DapTestCommon
             this.extensions = extensions.split(",");
             this.template = template;
             this.testinputpath
-                    = root + "/" + TESTINPUTDIR + "/" + dataset;
+                = this.inputroot + "/" + dataset + "." + id;
             this.baselinepath
-                    = root + "/" + BASELINEDIR + "/" + dataset + "." + String.valueOf(this.id);
+                = this.baselineroot + "/" + dataset + "." + id;
+            this.generatepath
+                = this.generateroot + "/" + dataset + "." + id;
             alltests[id] = this;
         }
 
@@ -122,6 +137,8 @@ public class TestServletConstraints extends DapTestCommon
     String datasetpath = null;
 
     String root = null;
+    String wardir = null;
+
     //////////////////////////////////////////////////
     // Constructor(s)
 
@@ -144,8 +161,12 @@ public class TestServletConstraints extends DapTestCommon
         this.root = getDAP4Root();
         if(this.root == null)
             throw new Exception("dap4 root not found");
-        this.datasetpath = this.root + "/" + DATADIR;
-        defineAllTestcases(this.root);
+        this.wardir = getWARDir();
+        if(this.wardir == null)
+            throw new Exception("dap4 war directory not found");
+        this.datasetpath = this.wardir + "/" + RESOURCEDIR;
+        ConstraintTest.setRoots(this.datasetpath, this.root + BASELINEDIR, this.root + GENERATEDIR);
+        defineAllTestcases();
         chooseTestcases();
     }
 
@@ -164,9 +185,8 @@ public class TestServletConstraints extends DapTestCommon
         }
     }
 
-    void defineAllTestcases(String root)
+    void defineAllTestcases()
     {
-        ConstraintTest.root = root;
         this.alltestcases.add(
                 new ConstraintTest(1, "test_one_vararray.nc", "dmr,dap", "/t[1]",
                         // S4

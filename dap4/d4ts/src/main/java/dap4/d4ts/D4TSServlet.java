@@ -31,7 +31,8 @@ public class D4TSServlet extends DapServlet
 
     static final boolean PARSEDEBUG = false;
 
-    static final String TESTDATADIR = "testfiles"; // relative to resource path
+    static final String RESOURCEDIR = "/WEB-INF/resources";
+    static final String TESTDATADIR = RESOURCEDIR+"/testfiles"; // relative to resource path
 
     //////////////////////////////////////////////////
     // Type Decls
@@ -82,7 +83,11 @@ public class D4TSServlet extends DapServlet
         // Construct a simple URLmap
         try {
             String urlprefix = "/" + DapUtil.canonicalpath(this.svcinfo.getServletname());
-            String fileprefix = DapUtil.canonicalpath(svcinfo.getRealPath("WEB-INF/resources")) + "/" + TESTDATADIR;
+            String fileprefix = DapUtil.canonicalpath(svcinfo.getRealPath(""));
+            System.err.println("x1: "+fileprefix);
+            fileprefix = fileprefix + TESTDATADIR;
+            System.err.println("x3: "+fileprefix);
+            System.err.flush();
             this.urlmap.addEntry(urlprefix, fileprefix);
         } catch (DapException de) {
             throw new ServletException(de);
@@ -150,7 +155,7 @@ public class D4TSServlet extends DapServlet
             throw new IOException("Unknown dataset: " + drq.getOriginalURL());
 
         // Locate the dataset file
-        datasetfilepath = mappath.prefix + mappath.suffix;
+        datasetfilepath = mappath.prefix + "/" + mappath.suffix;
         // See if it really exists and is readable and of proper type
         File dataset = new File(datasetfilepath);
         if(!dataset.exists())

@@ -5,13 +5,14 @@
 
 package dap4.servlet;
 
-import dap4.ce.*;
-import dap4.ce.parser.*;
-import dap4.core.dmr.*;
-import dap4.core.dmr.parser.Dap4Parser;
+import dap4.ce.CEAST;
+import dap4.ce.CECompiler;
+import dap4.ce.CEConstraint;
+import dap4.ce.parser.CEParser;
+import dap4.core.dmr.DapDataset;
+import dap4.core.dmr.ErrorResponse;
 import dap4.core.util.*;
 import dap4.dap4shared.*;
-import dap4.servlet.*;
 import net.jcip.annotations.NotThreadSafe;
 import org.xml.sax.SAXException;
 

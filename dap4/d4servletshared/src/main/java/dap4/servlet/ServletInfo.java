@@ -92,6 +92,12 @@ public class ServletInfo
         return realpath;
     }
 
+    public String
+    getContextPath()
+    {
+        return servletcontext.getContextPath();
+    }
+
     public String getServer()
     {
         return this.server;

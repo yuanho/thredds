@@ -32,6 +32,10 @@ public class DapTestCommon extends TestCase
 
     static public final String FILESERVER = "file://localhost:8080";
 
+    static public final String WARPATH = "/d4tswar/target";
+
+    static public final String WARTAG = "d4tswar.*SNAPSHOT";
+
     // NetcdfDataset enhancement to use: need only coord systems
     static Set<NetcdfDataset.Enhance> ENHANCEMENT = EnumSet.of(NetcdfDataset.Enhance.CoordSystems);
 
@@ -93,6 +97,27 @@ public class DapTestCommon extends TestCase
         if(root != null)
             root = root + "/" + DEFAULTTREEROOT;
         return root;
+    }
+
+    static public String
+    getWARDir()
+    {
+        String path = locateDAP4Root();
+        if(path == null)
+            return null;
+        path = path + WARPATH;
+        File f = new File(path);
+        if(!f.exists() || !f.isDirectory())
+            return null;
+        File[] contents = f.listFiles();
+        path = null;
+        for(File sf: contents) {
+            if(sf.isDirectory() && sf.getName().matches(WARTAG)) {
+                path = sf.getAbsolutePath();
+                break;
+            }
+        }
+        return path;
     }
 
     static protected String
