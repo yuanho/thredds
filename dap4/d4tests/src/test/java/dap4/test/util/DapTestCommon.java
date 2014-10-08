@@ -192,24 +192,32 @@ public class DapTestCommon extends TestCase
         }
     }
 
-    public String getDAP4Root()
+    /**
+     * Try to get the system properties
+     */
+    protected void setSystemProperties()
     {
-        return dap4root;
+        if(System.getProperty("nodiff") != null)
+            prop_diff = false;
+        if(System.getProperty("baseline") != null)
+            prop_baseline = true;
+        if(System.getProperty("nogenerate") != null)
+            prop_generate = false;
+        if(System.getProperty("debug") != null)
+            prop_debug = true;
+        if(System.getProperty("visual") != null)
+            prop_visual = true;
+        if(System.getProperty("ascii") != null)
+            prop_ascii = true;
+        if(System.getProperty("utf8") != null)
+            prop_ascii = false;
+        if(prop_baseline && prop_diff)
+            prop_diff = false;
+        prop_controls = System.getProperty("controls", "");
     }
 
-    protected void
-    initPaths()
-    {
-        // Compute the root path
-        this.threddsroot = locateThreddsRoot();
-        if(this.threddsroot != null)
-            this.dap4root = this.threddsroot + "/" + DEFAULTTREEROOT;
-        // Compute the set of SOURCES
-        this.d4tsServer = TestDir.dap4TestServer;
-        if(DEBUG) {
-            System.err.println("DapTestCommon: d4tsServer=" + d4tsServer);
-        }
-    }
+    //////////////////////////////////////////////////
+    // Accessor
 
     public String getDAP4Root()
     {
@@ -226,8 +234,81 @@ public class DapTestCommon extends TestCase
         return this.title;
     }
 
-    // Copy result into the a specified dir
+    //////////////////////////////////////////////////
+    // Instance Utilities
+
     public void
+    visual(String header, String captured)
+    {
+        if(!captured.endsWith("\n"))
+            captured = captured + "\n";
+        // Dump the output for visual comparison
+        System.out.println("Testing " + getName() + ": " + header + ":");
+        System.out.println("---------------");
+        System.out.print(captured);
+        System.out.println("---------------");
+    }
+
+    public boolean
+    compare(String baselinecontent, String testresult)
+            throws Exception
+    {
+        StringReader baserdr = new StringReader(baselinecontent);
+        StringReader resultrdr = new StringReader(testresult);
+        // Diff the two files
+        Diff diff = new Diff("Testing " + getTitle());
+        boolean pass = !diff.doDiff(baserdr, resultrdr);
+        baserdr.close();
+        resultrdr.close();
+        return pass;
+    }
+
+    protected void
+    findServer(String path)
+            throws DapException
+    {
+        if(d4tsServer.startsWith("file:")) {
+            d4tsServer = FILESERVER + "/" + path;
+        } else {
+            String svc = "http://" + d4tsServer + "/d4ts";
+            if(!checkServer(svc))
+                throw new DapException("D4TS Server not reachable: " + svc);
+            // Since we will be accessing it thru NetcdfDataset, we need to change the schema.
+            d4tsServer = "dap4://" + d4tsServer + "/d4ts";
+        }
+    }
+
+    protected boolean
+    checkServer(String candidate)
+    {
+        if(candidate == null) return false;
+/* requires httpclient4
+        int savecount = HTTPSession.getRetryCount();
+        HTTPSession.setRetryCount(1);
+*/
+        // See if the sourceurl is available by trying to get the DSR
+        System.err.print("Checking for sourceurl: " + candidate);
+        try {
+            HTTPSession session = new HTTPSession(candidate);
+            HTTPMethod method = HTTPFactory.Get(session);
+            method.execute();
+            String s = method.getResponseAsString();
+            session.close();
+            System.err.println(" ; found");
+            return true;
+        } catch (IOException ie) {
+            System.err.println(" ; fail");
+            return false;
+        } finally {
+// requires httpclient4            HTTPSession.setRetryCount(savecount);
+        }
+    }
+
+    //////////////////////////////////////////////////
+    // Static utilities
+
+    // Copy result into the a specified dir
+    static public void
     writefile(String path, String content)
             throws IOException
     {
@@ -278,32 +359,6 @@ public class DapTestCommon extends TestCase
         return DapUtil.readbinaryfile(file);
     }
 
-    public void
-    visual(String header, String captured)
-    {
-        if(!captured.endsWith("\n"))
-            captured = captured + "\n";
-        // Dump the output for visual comparison
-        System.out.println("Testing " + getName() + ": " + header + ":");
-        System.out.println("---------------");
-        System.out.print(captured);
-        System.out.println("---------------");
-    }
-
-    public boolean
-    compare(String baselinecontent, String testresult)
-            throws Exception
-    {
-        StringReader baserdr = new StringReader(baselinecontent);
-        StringReader resultrdr = new StringReader(testresult);
-        // Diff the two files
-        Diff diff = new Diff("Testing " + getTitle());
-        boolean pass = !diff.doDiff(baserdr, resultrdr);
-        baserdr.close();
-        resultrdr.close();
-        return pass;
-    }
-
     // Properly access a dataset
     static public NetcdfDataset openDataset(String url)
             throws IOException
@@ -331,72 +386,6 @@ public class DapTestCommon extends TestCase
         System.err.println(t);
         System.err.flush();
     }
-
-    /**
-     * Try to get the system properties
-     */
-    protected void setSystemProperties()
-    {
-        if(System.getProperty("nodiff") != null)
-            prop_diff = false;
-        if(System.getProperty("baseline") != null)
-            prop_baseline = true;
-        if(System.getProperty("nogenerate") != null)
-            prop_generate = false;
-        if(System.getProperty("debug") != null)
-            prop_debug = true;
-        if(System.getProperty("visual") != null)
-            prop_visual = true;
-        if(System.getProperty("ascii") != null)
-            prop_ascii = true;
-        if(System.getProperty("utf8") != null)
-            prop_ascii = false;
-        if(prop_baseline && prop_diff)
-            prop_diff = false;
-        prop_controls = System.getProperty("controls", "");
-    }
-
-    protected void
-    findServer(String path)
-            throws DapException
-    {
-        if(d4tsServer.startsWith("file:")) {
-            d4tsServer = FILESERVER + "/" + path;
-        } else {
-            String svc = "http://" + d4tsServer + "/d4ts";
-            if(!checkServer(svc))
-                throw new DapException("D4TS Server not reachable: " + svc);
-            // Since we will be accessing it thru NetcdfDataset, we need to change the schema.
-            d4tsServer = "dap4://" + d4tsServer + "/d4ts";
-        }
-    }
-
-    protected boolean
-    checkServer(String candidate)
-    {
-        if(candidate == null) return false;
-/* requires httpclient4
-        int savecount = HTTPSession.getRetryCount();
-        HTTPSession.setRetryCount(1);
-*/
-        // See if the sourceurl is available by trying to get the DSR
-        System.err.print("Checking for sourceurl: " + candidate);
-        try {
-            HTTPSession session = new HTTPSession(candidate);
-            HTTPMethod method = HTTPFactory.Get(session);
-            method.execute();
-            String s = method.getResponseAsString();
-            session.close();
-            System.err.println(" ; found");
-            return true;
-        } catch (IOException ie) {
-            System.err.println(" ; fail");
-            return false;
-        } finally {
-// requires httpclient4            HTTPSession.setRetryCount(savecount);
-        }
-    }
-
 
 }
 
