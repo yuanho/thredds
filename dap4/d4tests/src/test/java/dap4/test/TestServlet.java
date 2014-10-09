@@ -30,14 +30,14 @@ public class TestServlet extends DapTestCommon
     //////////////////////////////////////////////////
     // Constants
 
-    static protected String RESOURCEDIR = "/WEB-INF/resources";
-    static protected String TESTINPUTDIR = RESOURCEDIR + "/testfiles";
+    static protected final String RESOURCEDIR = "/WEB-INF/resources";
+    static protected final String TESTINPUTDIR = RESOURCEDIR + "/testfiles";
 
-    static protected String BASELINEDIR =  "/d4tests/src/test/data/resources/TestServlet/baseline";
-    static protected String GENERATEDIR =  "/d4tests/src/test/data/resources/TestCDMClient/testinput";
+    static protected final String BASELINEDIR =  "/d4tests/src/test/data/resources/TestServlet/baseline";
+    static protected final String GENERATEDIR =  "/d4tests/src/test/data/resources/TestCDMClient/testinput";
 
     // constants for Fake Request
-    static protected String FAKEURLPREFIX = "http://localhost:8080/d4ts";
+    static protected final String FAKEURLPREFIX = "http://localhost:8080/d4ts";
 
     static protected final BigInteger MASK = new BigInteger("FFFFFFFFFFFFFFFF", 16);
 

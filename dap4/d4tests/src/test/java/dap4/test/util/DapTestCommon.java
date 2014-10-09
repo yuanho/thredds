@@ -41,10 +41,10 @@ public class DapTestCommon extends TestCase
 
     static public final String CONSTRAINTTAG = "dap4.ce";
 
-    // Static variables
+    //////////////////////////////////////////////////
+    // Static Variables
 
     static public org.slf4j.Logger log;
-
 
     //////////////////////////////////////////////////
     // Static methods
@@ -111,7 +111,7 @@ public class DapTestCommon extends TestCase
             return null;
         File[] contents = f.listFiles();
         path = null;
-        for(File sf: contents) {
+        for(File sf : contents) {
             if(sf.isDirectory() && sf.getName().matches(WARTAG)) {
                 path = sf.getAbsolutePath();
                 break;
@@ -250,6 +250,7 @@ public class DapTestCommon extends TestCase
     }
 
     public boolean
+
     compare(String baselinecontent, String testresult)
             throws Exception
     {

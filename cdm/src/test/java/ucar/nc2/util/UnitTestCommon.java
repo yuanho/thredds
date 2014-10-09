@@ -32,7 +32,7 @@ public class UnitTestCommon extends TestCase
     static public org.slf4j.Logger log;
 
     // NetcdfDataset enhancement to use: need only coord systems
-    static Set<NetcdfDataset.Enhance> ENHANCEMENT = EnumSet.of(NetcdfDataset.Enhance.CoordSystems);
+    static final Set<NetcdfDataset.Enhance> ENHANCEMENT = EnumSet.of(NetcdfDataset.Enhance.CoordSystems);
 
     //////////////////////////////////////////////////
     // Static methods
