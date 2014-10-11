@@ -31,8 +31,7 @@ public class D4TSServlet extends DapServlet
 
     static final boolean PARSEDEBUG = false;
 
-    static final String RESOURCEDIR = "/WEB-INF/resources";
-    static final String TESTDATADIR = RESOURCEDIR+"/testfiles"; // relative to resource path
+    static final String TESTDATADIR = "/WEB-INF/resources/testfiles"; // relative to resource path
 
     //////////////////////////////////////////////////
     // Type Decls
@@ -141,6 +140,7 @@ public class D4TSServlet extends DapServlet
 
     }
 
+    @Override
     protected String
     getResourcePath(DapRequest drq)
             throws IOException

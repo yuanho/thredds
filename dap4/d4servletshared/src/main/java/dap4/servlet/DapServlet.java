@@ -112,6 +112,14 @@ abstract public class DapServlet extends javax.servlet.http.HttpServlet
 
     abstract protected void doCapabilities(DapRequest drq) throws IOException;
 
+    /**
+     * Convert a URL path into an absolute file path
+     *
+     * @param drq The wrapped request info
+     */
+
+    abstract protected String getResourcePath(DapRequest drq) throws IOException;
+
     //////////////////////////////////////////////////////////
     // Accessors
 
@@ -166,6 +174,7 @@ abstract public class DapServlet extends javax.servlet.http.HttpServlet
         synchronized (this) {
             this.svcinfo.setServer(url);
         }
+
         String query = req.getQueryString();
         DapLog.debug("doGet(): url = " + url + (query == null || query.length() == 0 ? "" : "?" + query));
 
@@ -475,13 +484,6 @@ abstract public class DapServlet extends javax.servlet.http.HttpServlet
         ce.finish();
         return ce;
     }
-
-
-    //////////////////////////////////////////////////
-    // Convert a URL path into a file path and get the NetcdfFile
-
-    abstract protected String getResourcePath(DapRequest drq) throws IOException;
-
 
 }
 

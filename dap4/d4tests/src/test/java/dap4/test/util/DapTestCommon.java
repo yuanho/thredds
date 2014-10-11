@@ -32,14 +32,14 @@ public class DapTestCommon extends TestCase
 
     static public final String FILESERVER = "file://localhost:8080";
 
-    static public final String WARPATH = "/d4tswar/target";
-
-    static public final String WARTAG = "d4tswar.*SNAPSHOT";
-
     // NetcdfDataset enhancement to use: need only coord systems
     static Set<NetcdfDataset.Enhance> ENHANCEMENT = EnumSet.of(NetcdfDataset.Enhance.CoordSystems);
 
     static public final String CONSTRAINTTAG = "dap4.ce";
+
+    // Equivalent to the path to the webapp/d4ts for testing purposes
+    static protected final String PSEUDOWEBAPPPATH = "/d4tests/src/test/data";
+    static protected final String RESOURCEPATH = "/resources";
 
     //////////////////////////////////////////////////
     // Static Variables
@@ -55,7 +55,8 @@ public class DapTestCommon extends TestCase
     // Same as code in UnitTestCommon, but for
     // some reason, Intellij will not let me import it.
 
-    static String locateThreddsRoot()
+    static String
+    locateThreddsRoot()
     {
         // Walk up the user.dir path looking for a node that has
         // all the directories in SUBROOTS.
@@ -91,33 +92,16 @@ public class DapTestCommon extends TestCase
     }
 
     static String
-    locateDAP4Root()
+    locateDAP4Root(String threddsroot)
     {
-        String root = locateThreddsRoot();
+        String root = threddsroot;
         if(root != null)
             root = root + "/" + DEFAULTTREEROOT;
-        return root;
-    }
-
-    static public String
-    getWARDir()
-    {
-        String path = locateDAP4Root();
-        if(path == null)
-            return null;
-        path = path + WARPATH;
-        File f = new File(path);
+        // See if it exists
+        File f = new File(root);
         if(!f.exists() || !f.isDirectory())
-            return null;
-        File[] contents = f.listFiles();
-        path = null;
-        for(File sf : contents) {
-            if(sf.isDirectory() && sf.getName().matches(WARTAG)) {
-                path = sf.getAbsolutePath();
-                break;
-            }
-        }
-        return path;
+            root = null;
+        return root;
     }
 
     static protected String
@@ -163,6 +147,9 @@ public class DapTestCommon extends TestCase
     protected String threddsroot = null;
     protected String dap4root = null;
     protected String d4tsServer = null;
+    protected String webapproot = null;
+    protected String resourcedir = null;
+
     protected String title = "Testing";
 
     public DapTestCommon()
@@ -183,13 +170,17 @@ public class DapTestCommon extends TestCase
     {
         // Compute the root path
         this.threddsroot = locateThreddsRoot();
-        if(this.threddsroot != null)
-            this.dap4root = this.threddsroot + "/" + DEFAULTTREEROOT;
+        if(this.threddsroot == null)
+            System.err.println("Cannot locate /thredds parent dir");
+        this.dap4root = locateDAP4Root(this.threddsroot);
+        if(this.dap4root == null)
+            System.err.println("Cannot locate /dap4 parent dir");
+        this.webapproot = this.dap4root + PSEUDOWEBAPPPATH;
+        this.resourcedir = this.webapproot + RESOURCEPATH;
         // Compute the set of SOURCES
         this.d4tsServer = TestDir.dap4TestServer;
-        if(DEBUG) {
+        if(DEBUG)
             System.err.println("DapTestCommon: d4tsServer=" + d4tsServer);
-        }
     }
 
     /**
@@ -221,7 +212,12 @@ public class DapTestCommon extends TestCase
 
     public String getDAP4Root()
     {
-        return dap4root;
+        return this.dap4root;
+    }
+
+    public String getResourceDir()
+    {
+        return this.resourcedir;
     }
 
     public void setTitle(String title)

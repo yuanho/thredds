@@ -288,9 +288,9 @@ public class DapRequest
     }
 
     /**
-     * Return the absolute path for the /WEB-INF/resources directory
+     * Return the absolute path for the /resources directory
      *
-     * @return the absolute path for the /WEB-INF/resources directory
+     * @return the absolute path for the /resources directory
      */
     public String getRealPath(String virtual)
     {
