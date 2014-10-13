@@ -51,22 +51,6 @@ public class FakeServlet extends D4TSServlet
         this.realpathroot = datasetpath;
     }
 
-    @Override
-    public void init()
-            throws ServletException
-    {
-        super.init(); // define svcinfo
-        // Re-Construct a simple URLmap
-        try {
-            String urlprefix = "/" + DapUtil.canonicalpath(this.svcinfo.getServletname());
-            String fileprefix = DapUtil.canonicalpath(this.svcinfo.getRealPath(""));
-            fileprefix = fileprefix + FAKETESTDATADIR;
-            this.urlmap.addEntry(urlprefix, fileprefix);
-        } catch (DapException de) {
-            throw new ServletException(de);
-        }
-    }
-
     //////////////////////////////////////////////////
     // Get/Set other than from the interfaces
 
@@ -395,5 +379,30 @@ public class FakeServlet extends D4TSServlet
     }
 
     // end interface ServletContext
+
+    // DapServlet Interface
+
+    @Override
+    protected String
+    getResourcePath(DapRequest drq)
+            throws IOException
+    {
+        // Using context information, we need to
+        // construct a file path to the specified dataset
+        String urlpath = drq.getURLPath();
+        String suffix = DapUtil.denullify(drq.getDataset());
+        String datasetfilepath = drq.getRealPath(FAKETESTDATADIR + DapUtil.canonicalpath(suffix));
+
+        // See if it really exists and is readable and of proper type
+        File dataset = new File(datasetfilepath);
+        if(!dataset.exists())
+            throw new DapException("Requested file does not exist: " + datasetfilepath)
+                    .setCode(HttpServletResponse.SC_NOT_FOUND);
+
+        if(!dataset.canRead())
+            throw new DapException("Requested file not readable: " + datasetfilepath)
+                    .setCode(HttpServletResponse.SC_FORBIDDEN);
+        return datasetfilepath;
+    }
 
 }

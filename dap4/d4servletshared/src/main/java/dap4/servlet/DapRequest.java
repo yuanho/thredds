@@ -297,4 +297,18 @@ public class DapRequest
         return this.svcinfo.getRealPath(virtual);
     }
 
+    /**
+     * Return the path info from the request url past the servlet name
+     *
+     * @return the path
+     */
+    public String getPathInfo()
+    {
+        String path = this.request.getPathInfo();
+        if(path == null)
+            path = "";
+        return path;
+    }
+
 }
+

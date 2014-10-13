@@ -54,7 +54,7 @@ public class ServletInfo
         this.servletname = this.servletconfig.getServletName();
         // Look around to see where the /resources dir is located
         // relative to realpath.
-        this.realpath = this.servletcontext.getRealPath("");
+        this.realpath = DapUtil.canonicalpath(this.servletcontext.getRealPath(""));
     }
     //////////////////////////////////////////////////
     // Accessors
@@ -86,7 +86,7 @@ public class ServletInfo
      * @return the absolute path for the /WEB-INF/resources directory
      */
 
-    public String getRealPath(String virtual)
+    protected String getRealPath(String virtual)
     {
         if(virtual.startsWith("/"))
             virtual = virtual.substring(1);

@@ -58,39 +58,12 @@ public class D4TSServlet extends DapServlet
     //////////////////////////////////////////////////
     // Instance variables
 
-    // Define the path prefix for finding a dataset
-    // given a url file spec
-
-    transient protected URLMap urlmap = new URLMapDefault();
-
     //////////////////////////////////////////////////
     // Constructor(s)
 
     public D4TSServlet()
     {
         super();
-    }
-
-    //////////////////////////////////////////////////////////
-    // Non-doXXX Servlet Methods
-
-    @Override
-    public void init()
-            throws ServletException
-    {
-        super.init(); // define svcinfo
-        // Construct a simple URLmap
-        try {
-            String urlprefix = "/" + DapUtil.canonicalpath(this.svcinfo.getServletname());
-            String fileprefix = DapUtil.canonicalpath(svcinfo.getRealPath(""));
-            System.err.println("x1: "+fileprefix);
-            fileprefix = fileprefix + TESTDATADIR;
-            System.err.println("x3: "+fileprefix);
-            System.err.flush();
-            this.urlmap.addEntry(urlprefix, fileprefix);
-        } catch (DapException de) {
-            throw new ServletException(de);
-        }
     }
 
     //////////////////////////////////////////////////////////
@@ -125,7 +98,7 @@ public class D4TSServlet extends DapServlet
             throw new DapException("Cannot locate resources directory");
 
         // Generate the front page
-        FrontPage front = new FrontPage(dir, this.urlmap, this.svcinfo);
+        FrontPage front = new FrontPage(dir, this.svcinfo);
         String frontpage = front.buildPage();
 
         if(frontpage == null)
@@ -148,14 +121,9 @@ public class D4TSServlet extends DapServlet
         // Using context information, we need to
         // construct a file path to the specified dataset
         String urlpath = drq.getURLPath();
-        URLMap.Result mappath = null;
-        String datasetfilepath = null;
-        mappath = urlmap.mapURL(urlpath);
-        if(mappath == null)
-            throw new IOException("Unknown dataset: " + drq.getOriginalURL());
+        String suffix = DapUtil.denullify(drq.getDataset());
+        String datasetfilepath = drq.getRealPath(TESTDATADIR + DapUtil.canonicalpath(suffix));
 
-        // Locate the dataset file
-        datasetfilepath = mappath.prefix + "/" + mappath.suffix;
         // See if it really exists and is readable and of proper type
         File dataset = new File(datasetfilepath);
         if(!dataset.exists())
@@ -165,7 +133,6 @@ public class D4TSServlet extends DapServlet
         if(!dataset.canRead())
             throw new DapException("Requested file not readable: " + datasetfilepath)
                     .setCode(HttpServletResponse.SC_FORBIDDEN);
-
         return datasetfilepath;
     }
 }
