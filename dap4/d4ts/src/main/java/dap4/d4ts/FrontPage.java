@@ -74,7 +74,7 @@ public class FrontPage
     // Constructor(s)
 
     /**
-     * @param root   the file directory root
+     * @param root the file directory root
      * @throws DapException
      */
     public FrontPage(String root, ServletInfo svcinfo)
@@ -151,9 +151,9 @@ public class FrontPage
                 } catch (IOException ioe) {
                     throw new DapException(ioe);
                 }
-                // Remove the root from the absolute path
+                absname = DapUtil.canonicalpath(file.getAbsolutePath());
                 if(!absname.startsWith(this.root))
-                    throw new DapException("Malformed file name: "+absname);
+                    throw new DapException("Malformed file name: " + absname);
                 String datasetname = DapUtil.denullify(absname.substring(this.root.length()));
                 String urlpath = this.svcinfo.getServer() + "/" + this.svcinfo.getServletname() + datasetname; // append remainder not used by mappath
                 String line = String.format(HTML_FORMAT, name, urlpath, urlpath, urlpath, urlpath);
