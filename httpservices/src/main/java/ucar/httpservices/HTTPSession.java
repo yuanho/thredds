@@ -78,11 +78,9 @@ import static ucar.httpservices.HTTPAuthScope.*;
  * HTTPSession.  The encapsulation is with respect to a specific url
  * This means that once a session is
  * specified, it is tied permanently to that url.
+ * This class encapsulates an HTTP HttpSession object,
+ * as well as encapsulates an instance of an Apache HttpClient.
  * <p/>
- * <p/>
- * It is important to note that Session objects do NOT correspond
- * with the HttpClient objects of the Apache httpclient library.
- * A Session does, however, encapsulate an instance of an Apache HttpClient.
  * <p/>
  * It is possible to specify a url when invoking, for example,
  * HTTPFactory.Get.  This is because the url argument to the
@@ -418,7 +416,7 @@ public class HTTPSession implements AutoCloseable
 
     static synchronized public String getGlobalUserAgent()
     {
-        return (String) globalsettings.getParameter(USER_AGENT);
+        return (String) globalsettings.get(USER_AGENT);
     }
 
     static synchronized public void setGlobalThreadCount(int nthreads)
@@ -442,12 +440,15 @@ public class HTTPSession implements AutoCloseable
 
     static synchronized public List<Cookie> getGlobalCookies()
     {
-        // Must be better way to do this.
-        AbstractHttpClient client = new DefaultHttpClient(connmgr);
-        //coverity[RESOURCE_LEAK]
-        List<Cookie> cookies = client.getCookieStore().getCookies();
-        client = null;
-        return cookies;
+	CookieStore store = (CookieStore)globalsettings.get(COOKIE_STORE);
+        if(store == null)
+	    return new ArrayList<Cookie>();
+	return store.getCookies();
+    }
+
+    static synchronized public void setGlobalCookieStore(CookieStore store)
+    {
+	globalsettings.setParameter(COOKIE_STORE,store);
     }
 
     // Timeouts
@@ -729,7 +730,6 @@ public class HTTPSession implements AutoCloseable
     // We currently only allow the use of global interceptors
     protected List<Object> intercepts = new ArrayList<Object>(); // current set of interceptors;
 
-<<<<<<< HEAD
     // We currently only allow the use of HTTPSession instance interceptors
     protected List<HttpRequestInterceptor> reqintercepts = new ArrayList<HttpRequestInterceptor>();
     protected List<HttpResponseInterceptor> rspintercepts = new ArrayList<HttpResponseInterceptor>();
@@ -739,13 +739,6 @@ public class HTTPSession implements AutoCloseable
     protected AuthScope cachedscope = null;
     protected URI cachedURI = null;
     protected HttpClientContext cachedcxt = null;
-=======
-    protected HttpContext execcontext = null; // same instance must be used for all methods
-
-    // cached and recreated as needed
-    protected CloseableHttpClient cachedclient = null;
-    protected boolean cachedclientinvalid = true;
->>>>>>> ckp
 
     //////////////////////////////////////////////////
     // Constructor(s)
@@ -781,7 +774,6 @@ public class HTTPSession implements AutoCloseable
     // Interceptors
     static protected HttpResponseInterceptor CEKILL = new HTTPUtil.ContentEncodingInterceptor();
 
-<<<<<<< HEAD
     public void
     setAllowCompression()
     {
@@ -815,21 +807,6 @@ public class HTTPSession implements AutoCloseable
             cb.addInterceptorLast(hrs);
         // Hack: add Content-Encoding suppressor
         cb.addInterceptorFirst(CEKILL);
-=======
-    synchronized void
-    setInterceptors(HttpClientBuilder builder)
-    {
-        for(HttpRequestInterceptor hrq : reqintercepts)
-            builder.addInterceptorLast(hrq);
-        for(HttpResponseInterceptor hrs : rspintercepts)
-            builder.addInterceptorLast(hrs);
-    }
-
-    synchronized void
-    clearInterceptors()
-    {
-        cachedclientinvalid = true;
->>>>>>> ckp
     }
 
     //////////////////////////////////////////////////
@@ -887,16 +864,6 @@ public class HTTPSession implements AutoCloseable
         localsettings.setParameter(MAX_REDIRECTS, n);
     }
 
-<<<<<<< HEAD
-=======
-    HttpContext
-    getContext()
-    {
-        return this.execcontext;
-    }
-
-
->>>>>>> ckp
     HttpClient
     getClient()
     {
@@ -934,17 +901,8 @@ public class HTTPSession implements AutoCloseable
 
     public void clearState()
     {
-<<<<<<< HEAD
         this.localsettings.clear();
         this.authlocal.clear();
-=======
-        if(cachedclient == null)
-           return;
-        cachedclient.getCredentialsProvider().clear();
-        cachedclient.getCookieStore().clear();
-        localsettings.clear();
-        authlocal.clear();
->>>>>>> ckp
     }
 
     //////////////////////////////////////////////////
@@ -1234,14 +1192,7 @@ public class HTTPSession implements AutoCloseable
     protected HttpHost
     httpHostFor(URI uri)
     {
-<<<<<<< HEAD
         return new HttpHost(uri.getHost(), uri.getPort(), uri.getScheme());
-=======
-        if(this.cachedclient != null)
-	    this.cachedclient.setCredentialsProvider(hap);
-        if(false)
-            this.execcontext.setAttribute(ClientContext.CREDS_PROVIDER, hap);
->>>>>>> ckp
     }
 
     //////////////////////////////////////////////////
@@ -1250,26 +1201,34 @@ public class HTTPSession implements AutoCloseable
     // Expose the state for testing purposes
     public boolean isClosed()
     {
-<<<<<<< HEAD
         return this.closed;
     }
 
     public int getMethodcount()
     {
         return methodList.size();
-=======
-        // Ensure that the client related objects exist
-        ensureHttpClient();
-        HttpHost target = requestHost();
-        CloseableHttpResponse response = cachedclient.execute(target, this.execcontext);
-	return response;
->>>>>>> ckp
+    }
+
+    protected String getSessionID()
+    {
+	String sid = null;
+	String jsid = null;
+	List<Cookie> cookies = cachedclient.getCookieStore().getCookies();
+	for(Cookie cookie: cookies) {
+	    if(cookie.getName().equalsIgnoreCase("sessionid"))
+		sid = cookie.getValue();
+	    if(cookie.getName().equalsIgnoreCase("jsessionid"))
+		jsid = cookie.getValue();
+	}		    
+	return (sid == null ? jsid : sid);
     }
 
     protected void ensureHttpClient()
     {
-        if(this.cachedclient != null)
+        if(this.cachevalid)
             return;
+	// We need to rebuild the cached client object
+
 /*
     ssl.TrustManagerFactory.algorithm
     javax.net.ssl.trustStoreType
@@ -1537,11 +1496,7 @@ public class HTTPSession implements AutoCloseable
             if(hr instanceof HTTPUtil.InterceptCommon)
                 reqintercepts.remove(i);
         }
-<<<<<<< HEAD
         for(int i = rspintercepts.size() - 1; i >= 0; i--) {
-=======
-        for(int i = rspintercepts.size() - 1;i >= 0;i--) {
->>>>>>> ckp
             HttpResponseInterceptor hr = rspintercepts.get(i);
             if(hr instanceof HTTPUtil.InterceptCommon)
                 rspintercepts.remove(i);
