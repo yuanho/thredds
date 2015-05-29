@@ -41,6 +41,12 @@ import java.util.*;
 
 import org.apache.http.*;
 import org.apache.http.client.methods.*;
+<<<<<<< HEAD
+=======
+import org.apache.http.client.params.AllClientPNames;
+import org.apache.http.params.HttpParams;
+import org.apache.http.protocol.HttpContext;
+>>>>>>> move http43/httpservices to this branch
 
 /**
  * HTTPFactory creates method instance.

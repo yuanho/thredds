@@ -260,6 +260,39 @@ public class HTTPMethod implements AutoCloseable
         return code;
     }
 
+    //////////////////////////////////////////////////
+    // Execution support
+
+    /**
+     * Create a request, add headers, and content,
+     * then send to HTTPSession to do the bulk of the work.
+     */
+    public int execute()
+            throws HTTPException
+    {
+        if(closed)
+            throw new HTTPException("HTTPMethod: attempt to execute closed method");
+        if(this.legalurl == null)
+            throw new HTTPException("HTTPMethod: no url specified");
+        if(!localsession && !sessionCompatible(this.legalurl))
+            throw new HTTPException("HTTPMethod: session incompatible url: " + this.legalurl);
+
+        this.request = createRequest();
+
+        // Add any defined headers
+        if(headers.size() > 0) {
+            for(Header h : headers) {
+                request.addHeader(h);
+            }
+        }
+
+        setcontent(this.request);
+
+        this.response = session.execute(request);
+        int code = response.getStatusLine().getStatusCode();
+        return code;
+    }
+
     protected HttpRequestBase
     createRequest()
             throws HTTPException
