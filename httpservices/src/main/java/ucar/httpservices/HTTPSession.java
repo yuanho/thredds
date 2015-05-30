@@ -38,6 +38,7 @@ import org.apache.http.*;
 import org.apache.http.auth.*;
 import org.apache.http.client.CookieStore;
 import org.apache.http.client.*;
+import org.apache.http.client.CookieStore;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.entity.DeflateDecompressingEntity;
 import org.apache.http.client.entity.GzipDecompressingEntity;
@@ -348,6 +349,7 @@ public class HTTPSession implements AutoCloseable
 
     // As taken from the command line, usually
 
+    // As taken from the command line, usually
     static protected KeyStore keystore = null;
     static protected KeyStore truststore = null;
     static protected String keypassword = null;
@@ -758,6 +760,8 @@ public class HTTPSession implements AutoCloseable
     protected AuthScope cachedscope = null;
     protected URI cachedURI = null;
     protected HttpClientContext cachedcxt = null;
+
+    protected String sessionid = null;
 
     //////////////////////////////////////////////////
     // Constructor(s)
