@@ -33,7 +33,6 @@
 
 package ucar.nc2.stream;
 
-import ucar.nc2.Structure;
 import ucar.nc2.iosp.AbstractIOServiceProvider;
 import ucar.nc2.NetcdfFile;
 import ucar.nc2.Variable;
@@ -46,7 +45,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Formatter;
 import java.util.List;
@@ -92,17 +90,15 @@ public class NcStreamIosp extends AbstractIOServiceProvider {
     int size;
     long filePos;
     Section section;
-    boolean isVlen, isDeflate;
-    ByteOrder bo;
+    boolean isVlen, isDeflate, isBigEndian;
     int nelems, uncompressedLen;
-    NcStreamProto.StructureData sdata;
 
     DataStorage(int size, long filePos, NcStreamProto.Data dproto) {
       this.size = size;
       this.filePos = filePos;
       section = NcStream.decodeSection(dproto.getSection());
       nelems = (int) section.computeSize();
-      bo = dproto.getBigend() ? ByteOrder.BIG_ENDIAN : ByteOrder.LITTLE_ENDIAN;
+      isBigEndian = dproto.getBigend();
       isVlen = dproto.getVdata();
       isDeflate = dproto.getCompress() == NcStreamProto.Compress.DEFLATE;
       if (isDeflate)
@@ -125,11 +121,8 @@ public class NcStreamIosp extends AbstractIOServiceProvider {
     ByteBuffer result = null;
 
     for (DataStorage dataStorage : storage) {
-      if (dataStorage.isVlen)
-        return readVlenData(v, section, dataStorage);
-
-      if (dataStorage.sdata != null)
-        return readStructureData((Structure) v, section, dataStorage);
+      //if (dataStorage.isVlen)
+      //  return readVlenData(v, section, dataStorage);
 
       if (dataStorage.section.intersects(section)) { // LOOK WRONG
         raf.seek(dataStorage.filePos);
@@ -157,18 +150,7 @@ public class NcStreamIosp extends AbstractIOServiceProvider {
     //return dataArray.sectionNoReduce(section.getRanges());
   }
 
-  private Array readStructureData(Structure v, Section section, DataStorage dataStorage) throws IOException, InvalidRangeException {
-    ByteBuffer bb = dataStorage.sdata.getData().asReadOnlyByteBuffer();
-    bb.order(dataStorage.bo);
-    StructureMembers sm = v.makeStructureMembers();
-    ArrayStructureBB.setOffsets(sm);
-    // StructureMembers members, int[] shape, ByteBuffer bbuffer, int offset
-    ArrayStructureBB all =  new ArrayStructureBB(sm, v.getShape(), bb, 0);
-    return ArrayStructureBBsection.factory(all, section);
-  }
-
-  // lOOK probably desnt work
-  private Array readVlenData(Variable v, Section section, DataStorage dataStorage) throws IOException, InvalidRangeException {
+  public Array readVlenData(Variable v, Section section, DataStorage dataStorage) throws IOException, InvalidRangeException {
     raf.seek(dataStorage.filePos);
     int nelems = readVInt(raf);
     Object[] result = new Object[nelems];
@@ -270,7 +252,7 @@ public class NcStreamIosp extends AbstractIOServiceProvider {
         if (ncm != null) ncm.add(new NcsMess(pos, 4, "MAGIC_DATA missing - abort"));
         break;
       }
-      if (ncm != null) ncm.add(new NcsMess(pos, 4, "MAGIC_DATA"));
+      if (ncm != null) ncm.add(new NcsMess(pos, 4, "MAGIC_DATA".intern()));
 
       // data messages
       pos = raf.getFilePointer();
@@ -284,7 +266,7 @@ public class NcStreamIosp extends AbstractIOServiceProvider {
       }
       if (debug) System.out.printf(" dproto = %s for %s%n", dproto, v.getShortName());
       if (ncm != null) ncm.add(new NcsMess(pos, psize, dproto));
-      List<DataStorage> storage;
+      List<DataStorage> storage = null;
       if (v != null) {
         storage = (List<DataStorage>) v.getSPobject(); // LOOK should be an in memory Rtree using section
         if (storage == null) {
@@ -294,18 +276,14 @@ public class NcStreamIosp extends AbstractIOServiceProvider {
       } else
         storage = new ArrayList<>(); // barf
 
-      if (dproto.getDataType() == NcStreamProto.DataType.STRUCTURE) {
-        pos = raf.getFilePointer();
-        msize = readVInt(raf);
-        m = new byte[msize];
-        raf.readFully(m);
-        NcStreamProto.StructureData sdata = NcStreamProto.StructureData.parseFrom(m);
-        DataStorage dataStorage = new DataStorage(msize, pos, dproto);
-        dataStorage.sdata = sdata;
-        if (ncm != null) ncm.add(new NcsMess(dataStorage.filePos, msize, sdata));
+      if (!dproto.getVdata()) { // regular data and structureData
+        int dsize = readVInt(raf);
+        DataStorage dataStorage = new DataStorage(dsize, raf.getFilePointer(), dproto);
+        if (ncm != null) ncm.add(new NcsMess(dataStorage.filePos, dsize, dataStorage));
         storage.add(dataStorage);
+        raf.skipBytes(dsize);
 
-      } else if (dproto.getVdata()) {
+      } else {  // LOOK WRONG WHY?
         DataStorage dataStorage = new DataStorage(0, raf.getFilePointer(), dproto);
         int nelems = readVInt(raf);
         int totalSize = 0;
@@ -318,14 +296,6 @@ public class NcStreamIosp extends AbstractIOServiceProvider {
         dataStorage.size = totalSize;
         if (ncm != null) ncm.add(new NcsMess(dataStorage.filePos, totalSize, dataStorage));
         storage.add(dataStorage);
-
-      } else {  // regular data
-        int dsize = readVInt(raf);
-        DataStorage dataStorage = new DataStorage(dsize, raf.getFilePointer(), dproto);
-        if (ncm != null) ncm.add(new NcsMess(dataStorage.filePos, dsize, dataStorage));
-        storage.add(dataStorage);
-        raf.skipBytes(dsize);
-
       }
     }
   }
