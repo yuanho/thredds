@@ -194,10 +194,6 @@ public class CdmRemote extends ucar.nc2.NetcdfFile {
       assert v.getFullNameEscaped().equals(result.varNameFullEsc);
       result.data.setUnsigned(v.isUnsigned());
       return result.data;
-<<<<<<< HEAD
-
-=======
->>>>>>> conflicts
     }
   }
 
@@ -265,10 +261,6 @@ public class CdmRemote extends ucar.nc2.NetcdfFile {
 
       // header
       String url = remoteURI + "?req=header";
-<<<<<<< HEAD
-=======
-<<<<<<< Updated upstream
->>>>>>> conflicts
       try (
         // get the header
         HTTPMethod method = HTTPFactory.Get(httpClient, url)) {
@@ -328,7 +320,3 @@ public class CdmRemote extends ucar.nc2.NetcdfFile {
   }
 
 }
-<<<<<<< HEAD
-
-=======
->>>>>>> conflicts
