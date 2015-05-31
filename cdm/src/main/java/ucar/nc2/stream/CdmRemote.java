@@ -194,6 +194,7 @@ public class CdmRemote extends ucar.nc2.NetcdfFile {
       assert v.getFullNameEscaped().equals(result.varNameFullEsc);
       result.data.setUnsigned(v.isUnsigned());
       return result.data;
+
     }
   }
 
