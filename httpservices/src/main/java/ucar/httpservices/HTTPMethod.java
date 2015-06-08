@@ -307,12 +307,12 @@ public class HTTPMethod implements AutoCloseable
     {
         if(closed)
             throw new HTTPException("HTTPMethod: attempt to execute closed method");
-        if(this.legalurl == null)
+        if(this.methodurl == null)
             throw new HTTPException("HTTPMethod: no url specified");
-        if(!localsession && !sessionCompatible(this.legalurl))
-            throw new HTTPException("HTTPMethod: session incompatible url: " + this.legalurl);
+        if(!localsession && !sessionCompatible(this.methodurl))
+            throw new HTTPException("HTTPMethod: session incompatible url: " + this.methodurl.toString());
 
-        this.request = createRequest();
+        HttpRequestBase request = createRequest();
 
         // Add any defined headers
         if(headers.size() > 0) {
@@ -321,10 +321,12 @@ public class HTTPMethod implements AutoCloseable
             }
         }
 
-        setcontent(this.request);
+        setcontent(request);
 
-        this.response = session.execute(request);
-        int code = response.getStatusLine().getStatusCode();
+        this.execcontext = session.execute(request);
+        this.request = this.execcontext.getRequest();
+        this.response = this.execcontext.getResponse();
+        int code = this.response.getStatusLine().getStatusCode();
         return code;
     }
 
