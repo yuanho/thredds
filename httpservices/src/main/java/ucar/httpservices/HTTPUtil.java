@@ -34,24 +34,17 @@
 package ucar.httpservices;
 
 import org.apache.http.*;
-<<<<<<< HEAD
 import org.apache.http.auth.AuthScope;
-=======
->>>>>>> move http43/httpservices to this branch
 import org.apache.http.client.entity.GzipDecompressingEntity;
 import org.apache.http.entity.AbstractHttpEntity;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.protocol.HttpContext;
 
 import java.io.*;
-<<<<<<< HEAD
 import java.net.*;
 import java.util.*;
 
 import static org.apache.http.auth.AuthScope.*;
-=======
-import java.util.*;
->>>>>>> move http43/httpservices to this branch
 
 abstract public class HTTPUtil
 {
