@@ -38,7 +38,6 @@ import org.apache.http.*;
 import org.apache.http.auth.*;
 import org.apache.http.client.CookieStore;
 import org.apache.http.client.*;
-import org.apache.http.client.CookieStore;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.entity.DeflateDecompressingEntity;
 import org.apache.http.client.entity.GzipDecompressingEntity;
@@ -776,6 +775,7 @@ public class HTTPSession implements AutoCloseable
         } catch (MalformedURLException mue) {
             throw new HTTPException("Malformed URL: " + url, mue);
         }
+
         this.cachevalid = false; // Force build on first use
     }
 
