@@ -68,13 +68,13 @@ public class RestrictedDatasetServlet extends HttpServlet {
 
       Authorizer authObject;
       try {
-        authObject = (Authorizer) authClass.newInstance();
+        authObject = (Authorizer) authClass.newInstance();   // note: registry
 
         String roleSourceName = getInitParameter("RoleSource");
         if (roleSourceName != null) {
           try {
             Class clazz = Class.forName(roleSourceName);
-            RoleSource rs = (RoleSource) clazz.newInstance();
+            RoleSource rs = (RoleSource) clazz.newInstance(); // note: registry
             authObject.setRoleSource(rs);
           } catch (ClassNotFoundException e) {
             log.error("Failed to instantiate " + roleSourceName, e);

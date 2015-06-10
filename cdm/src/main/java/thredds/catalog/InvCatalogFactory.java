@@ -238,7 +238,7 @@ public class InvCatalogFactory {
    * @param converter : use this MetadataConverterIF for the given key
    * @see InvMetadata
    */
-  public void registerMetadataConverter(String key, MetadataConverterIF converter) {
+  public void registerMetadataConverter(String key, MetadataConverterIF converter) // note: registry {
     metadataConverters.put(key, converter);
   }
 

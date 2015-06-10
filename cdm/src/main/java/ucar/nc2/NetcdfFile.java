@@ -308,10 +308,10 @@ public class NetcdfFile implements ucar.nc2.util.cache.FileCacheable, AutoClosea
    * @throws InstantiationException if class doesnt have a no-arg constructor.
    * @throws ClassCastException     if class doesnt implement IOServiceProvider interface.
    */
-  static public void registerIOProvider(Class iospClass, boolean last)
+  static public void registerIOProvider(Class iospClass, boolean last) // note: registry
           throws IllegalAccessException, InstantiationException {
     IOServiceProvider spi;
-    spi = (IOServiceProvider) iospClass.newInstance(); // fail fast
+    spi = (IOServiceProvider) iospClass.newInstance(); // fail fast // note: registry
     if (userLoads && !last)
       registeredProviders.add(0, spi);  // put user stuff first
     else registeredProviders.add(spi);
@@ -488,7 +488,7 @@ public class NetcdfFile implements ucar.nc2.util.cache.FileCacheable, AutoClosea
           throws ClassNotFoundException, IllegalAccessException, InstantiationException, IOException {
 
     Class iospClass = NetcdfFile.class.getClassLoader().loadClass(iospClassName);
-    IOServiceProvider spi = (IOServiceProvider) iospClass.newInstance(); // fail fast
+    IOServiceProvider spi = (IOServiceProvider) iospClass.newInstance(); // fail fast // note: registry
 
     // send before iosp is opened
     if (iospMessage != null)
@@ -717,7 +717,7 @@ public class NetcdfFile implements ucar.nc2.util.cache.FileCacheable, AutoClosea
 
     ucar.unidata.io.InMemoryRandomAccessFile raf = new ucar.unidata.io.InMemoryRandomAccessFile(name, data);
     Class iospClass = NetcdfFile.class.getClassLoader().loadClass(iospClassName);
-    IOServiceProvider spi = (IOServiceProvider) iospClass.newInstance();
+    IOServiceProvider spi = (IOServiceProvider) iospClass.newInstance(); // note: registry
 
     return new NetcdfFile(spi, raf, name, null);
   }
@@ -784,7 +784,7 @@ public class NetcdfFile implements ucar.nc2.util.cache.FileCacheable, AutoClosea
         if (currentSpi.isValidFile(raf)) {
           Class c = currentSpi.getClass();
           try {
-            spi = (IOServiceProvider) c.newInstance();
+            spi = (IOServiceProvider) c.newInstance();  // note: registry
           } catch (InstantiationException e) {
             throw new IOException("IOServiceProvider " + c.getName() + "must have no-arg constructor."); // shouldnt happen
           } catch (IllegalAccessException e) {
@@ -802,7 +802,7 @@ public class NetcdfFile implements ucar.nc2.util.cache.FileCacheable, AutoClosea
           // need a new instance for thread safety
           Class c = registeredSpi.getClass();
           try {
-            spi = (IOServiceProvider) c.newInstance();
+            spi = (IOServiceProvider) c.newInstance(); // note: registry
           } catch (InstantiationException e) {
             throw new IOException("IOServiceProvider " + c.getName() + "must have no-arg constructor."); // shouldnt happen
           } catch (IllegalAccessException e) {
@@ -1456,7 +1456,7 @@ public class NetcdfFile implements ucar.nc2.util.cache.FileCacheable, AutoClosea
           throws IOException, IllegalAccessException, InstantiationException, ClassNotFoundException {
 
     Class iospClass = getClass().getClassLoader().loadClass(iospClassName);
-    spi = (IOServiceProvider) iospClass.newInstance();
+    spi = (IOServiceProvider) iospClass.newInstance(); // note: registry
     if (debugSPI) System.out.println("NetcdfFile uses iosp = " + spi.getClass().getName());
     if (iospParam != null) spi.sendIospMessage(iospParam);
 

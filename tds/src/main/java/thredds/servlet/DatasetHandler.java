@@ -102,7 +102,8 @@ public class DatasetHandler {
     debugHandler.addAction(act);
   }
 
-  static public void registerDatasetSource(String className) {
+  static public void registerDatasetSource(String className) // note: registry
+  {
     Class vClass;
     try {
       vClass = DatasetHandler.class.getClassLoader().loadClass(className);
@@ -119,7 +120,7 @@ public class DatasetHandler {
     // create instance of the class
     Object instance;
     try {
-      instance = vClass.newInstance();
+      instance = vClass.newInstance();   // note: registry
     } catch (InstantiationException e) {
       log.error("Attempt to load Viewer class " + className + " cannot instantiate, probably need default Constructor.");
       return;

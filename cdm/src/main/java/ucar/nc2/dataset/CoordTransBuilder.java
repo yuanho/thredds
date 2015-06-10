@@ -108,7 +108,7 @@ public class CoordTransBuilder {
 
     // fail fast - check newInstance works
     try {
-      c.newInstance();
+      c.newInstance(); // note: registry
     } catch (InstantiationException e) {
       throw new IllegalArgumentException("CoordTransBuilderIF Class "+c.getName()+" cannot instantiate, probably need default Constructor");
     } catch (IllegalAccessException e) {
@@ -129,7 +129,8 @@ public class CoordTransBuilder {
    * @param className name of class that implements CoordTransBuilderIF.
    * @throws ClassNotFoundException if Class.forName( className) fails
    */
-  static public void registerTransform( String transformName, String className) throws ClassNotFoundException {
+  static public void registerTransform( String transformName, String className)  // note: registry
+      throws ClassNotFoundException {
     Class c = Class.forName( className);
     registerTransform( transformName, c);
   }
@@ -203,7 +204,7 @@ public class CoordTransBuilder {
       // get an instance of that class
     CoordTransBuilderIF builder = null;
     try {
-      builder = (CoordTransBuilderIF) builderClass.newInstance();
+      builder = (CoordTransBuilderIF) builderClass.newInstance(); // note: registry
     } catch (InstantiationException e) {
       log.error("Cant instantiate "+builderClass.getName(), e);
     } catch (IllegalAccessException e) {

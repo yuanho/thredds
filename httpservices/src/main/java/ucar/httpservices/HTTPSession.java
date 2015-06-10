@@ -38,7 +38,6 @@ import org.apache.http.*;
 import org.apache.http.auth.*;
 import org.apache.http.client.CookieStore;
 import org.apache.http.client.*;
-import org.apache.http.client.CookieStore;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.entity.DeflateDecompressingEntity;
 import org.apache.http.client.entity.GzipDecompressingEntity;
@@ -685,7 +684,7 @@ public class HTTPSession implements AutoCloseable
 
     // Currently, the granularity of authorization is host+port.
     protected URL realmURL = null;
-    protected String realmProtocol = null;
+    protected String realmScheme = null;
     protected String realmHost = null;
     protected int realmPort = -1;
     protected boolean closed = false;
@@ -722,25 +721,31 @@ public class HTTPSession implements AutoCloseable
     //////////////////////////////////////////////////
     // Constructor(s)
 
-    public HTTPSession()
+    protected HTTPSession()
         throws HTTPException
     {
-        this(null);
     }
 
     public HTTPSession(String url)
         throws HTTPException
     {
+        if(url == null || url.length() == 0)
+            throw new HTTPException("HTTPSession(): empty URL not allowed");
+        // Make sure url has leading protocol
+        String[] pieces = url.split("^[a-zZ-Z0-9+.-]+:");
+        if(pieces.length == 1)
+            url = "http:" + url; // try to make it parseable
         try {
             URL u = new URL(url);
             this.realmHost = u.getHost();
             this.realmPort = u.getPort();
-            this.realmProtocol = u.getProtocol();
-            u = new URL(this.realmProtocol, this.realmHost, this.realmPort, "");
+            this.realmScheme = u.getProtocol();
+            u = new URL(this.realmScheme, this.realmHost, this.realmPort, "");
             this.realmURL = u;
         } catch (MalformedURLException mue) {
             throw new HTTPException("Malformed URL: " + url, mue);
         }
+
         this.cachevalid = false; // Force build on first use
     }
 
@@ -1055,7 +1060,7 @@ public class HTTPSession implements AutoCloseable
         rb.setAuthenticationEnabled(true);
 
         // Configure the RequestConfig
-        for(String key: settings.getKeys()) {
+        for(String key : settings.getKeys()) {
             Object value = settings.getParameter(key);
             boolean tf = (value instanceof Boolean ? (Boolean) value : false);
             if(key.equals(ALLOW_CIRCULAR_REDIRECTS)) {
@@ -1075,7 +1080,7 @@ public class HTTPSession implements AutoCloseable
         }
 
         // Configure the request directly
-        for(String key: settings.getKeys()) {
+        for(String key : settings.getKeys()) {
             Object value = settings.getParameter(key);
             boolean tf = (value instanceof Boolean ? (Boolean) value : false);
             if(key.equals(USER_AGENT)) {

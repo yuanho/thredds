@@ -109,7 +109,7 @@ public class TableAnalyzer {
     // fail fast - check newInstance works
     TableConfigurer tc;
     try {
-      tc = (TableConfigurer) c.newInstance();
+      tc = (TableConfigurer) c.newInstance();  // note: registry
     } catch (InstantiationException e) {
       throw new IllegalArgumentException("TableConfigurer Class " + c.getName() + " cannot instantiate, probably need default Constructor");
     } catch (IllegalAccessException e) {
@@ -242,7 +242,7 @@ public class TableAnalyzer {
     TableConfigurer tc = null;
     if (anal != null) {
       try {
-        tc = (TableConfigurer) anal.confClass.newInstance();
+        tc = (TableConfigurer) anal.confClass.newInstance(); // note: registry
         tc.setConvName( convName);
         tc.setConvUsed( convUsed);
       } catch (InstantiationException | IllegalAccessException e) {

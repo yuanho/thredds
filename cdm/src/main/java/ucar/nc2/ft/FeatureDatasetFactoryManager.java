@@ -123,7 +123,7 @@ public class FeatureDatasetFactoryManager {
     // fail fast - get Instance
     Object instance;
     try {
-      instance = c.newInstance();
+      instance = c.newInstance(); // note: registry
     } catch (InstantiationException e) {
       throw new IllegalArgumentException("FeatureDatasetFactoryManager Class " + c.getName() + " cannot instantiate, probably need default Constructor");
     } catch (IllegalAccessException e) {
@@ -163,7 +163,7 @@ public class FeatureDatasetFactoryManager {
     // fail fast - get Instance
     Object instance;
     try {
-      instance = c.newInstance();
+      instance = c.newInstance(); // note:registry
     } catch (InstantiationException e) {
       throw new IllegalArgumentException("FeatureDatasetFactoryManager Class " + c.getName() + " cannot instantiate, probably need default Constructor");
     } catch (IllegalAccessException e) {

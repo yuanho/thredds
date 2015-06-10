@@ -53,11 +53,6 @@ public class HTTPFactory
     //////////////////////////////////////////////////////////////////////////
     // Static factory methods for creating HTTPSession instances
 
-    static public HTTPSession newSession() throws HTTPException
-    {
-        return new HTTPSession();
-    }
-
     static public HTTPSession newSession(String legalurl) throws HTTPException
     {
         return new HTTPSession(legalurl);

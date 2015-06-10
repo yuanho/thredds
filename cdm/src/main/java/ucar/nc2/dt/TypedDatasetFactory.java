@@ -90,7 +90,8 @@ public class TypedDatasetFactory {
     * @param datatype  scientific data type
     * @throws ClassNotFoundException if loading error
     */
-   static public void registerFactory( FeatureType datatype, String className) throws ClassNotFoundException {
+   static public void registerFactory( FeatureType datatype, String className) // note: registry
+    throws ClassNotFoundException {
      Class c = Class.forName( className);
      registerFactory( datatype, c);
    }
@@ -107,7 +108,7 @@ public class TypedDatasetFactory {
     // fail fast - check newInstance works
     Object instance;
     try {
-      instance = c.newInstance();
+      instance = c.newInstance(); // note: registry
     } catch (InstantiationException e) {
       throw new IllegalArgumentException("CoordTransBuilderIF Class "+c.getName()+" cannot instantiate, probably need default Constructor");
     } catch (IllegalAccessException e) {
@@ -208,7 +209,7 @@ public class TypedDatasetFactory {
     // get a new instance of the Factory class, for thread safety
     TypedDatasetFactoryIF builder = null;
     try {
-      builder = (TypedDatasetFactoryIF) useClass.newInstance();
+      builder = (TypedDatasetFactoryIF) useClass.newInstance(); // note: registry ?
     } catch (InstantiationException e) {
       errlog.append(e.getMessage()).append("\n");
     } catch (IllegalAccessException e) {

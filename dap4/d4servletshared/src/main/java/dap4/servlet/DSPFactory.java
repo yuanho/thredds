@@ -130,7 +130,7 @@ abstract public class DSPFactory
                 Method match = testclass.getMethod("match", String.class, DapContext.class);
                 boolean ismatch = (Boolean) match.invoke(null, path, (DapContext) null);
                 if(ismatch) {
-                    DSP dsp = (DSP) testclass.newInstance();
+                    DSP dsp = (DSP) testclass.newInstance();  // note: registry
                     return dsp.open(path);
                 }
             } catch (Exception e) {

@@ -183,7 +183,7 @@ public class FunctionLibrary {
             String fullName = prefix + name;
             Class value = Class.forName(fullName);
             if ((ServerSideFunction.class).isAssignableFrom(value)) {
-                add((ServerSideFunction) value.newInstance());
+                add((ServerSideFunction) value.newInstance());  // note: registry
                 return;
             }
         } catch (ClassNotFoundException e) {

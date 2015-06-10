@@ -224,7 +224,7 @@ public class CoordSysBuilder implements CoordSysBuilderIF {
 
     // fail fast - check newInstance works
     try {
-      c.newInstance();
+      c.newInstance(); // note: registry
     } catch (InstantiationException e) {
       throw new IllegalArgumentException("CoordSysBuilderIF Class " + c.getName() + " cannot instantiate, probably need default Constructor");
     } catch (IllegalAccessException e) {
@@ -258,7 +258,8 @@ public class CoordSysBuilder implements CoordSysBuilderIF {
    * @param className      name of class that implements CoordSysBuilderIF.
    * @throws ClassNotFoundException if class could not be loaded
    */
-  static public void registerConvention(String conventionName, String className) throws ClassNotFoundException {
+  static public void registerConvention(String conventionName, String className) // note:registry
+      throws ClassNotFoundException {
     Class c = Class.forName(className);
     registerConvention(conventionName, c, null);
   }
@@ -455,7 +456,7 @@ public class CoordSysBuilder implements CoordSysBuilderIF {
     if (builder == null) {
       // get an instance of the class
       try {
-        builder = (CoordSysBuilderIF) convClass.newInstance();
+        builder = (CoordSysBuilderIF) convClass.newInstance(); // note: registry
       } catch (Exception e) {
         log.error("failed on CoordSysBuilderIF for " + convClass.getName(), e);
         return null;
