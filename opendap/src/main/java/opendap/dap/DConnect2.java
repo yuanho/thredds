@@ -487,7 +487,7 @@ public class DConnect2 implements AutoCloseable
 
         List<Cookie> cookies = HTTPSession.getGlobalCookies();
 
-        if(cookies.size() > 0) {
+        if(cookies != null && cookies.size() > 0) {
             if(debugHeaders) DAPNode.log.debug("Cookies= ");
             for(Cookie cooky : cookies) {
                 if(debugHeaders) DAPNode.log.debug("  " + cooky);

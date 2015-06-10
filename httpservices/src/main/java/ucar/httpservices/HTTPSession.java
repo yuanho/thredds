@@ -736,7 +736,7 @@ public class HTTPSession implements AutoCloseable
             this.realmHost = u.getHost();
             this.realmPort = u.getPort();
             this.realmProtocol = u.getProtocol();
-            u = new URL(this.realmProtocol, this.realmHost, this.realmPort, null);
+            u = new URL(this.realmProtocol, this.realmHost, this.realmPort, "");
             this.realmURL = u;
         } catch (MalformedURLException mue) {
             throw new HTTPException("Malformed URL: " + url, mue);
@@ -1006,6 +1006,7 @@ public class HTTPSession implements AutoCloseable
                 configClient(cb, merged);
                 setAuthentication(cb, rb, merged);
                 this.cachedclient = cb.build();
+                this.cachevalid = true;
             }
         }
         request.setConfig(rb.build());
