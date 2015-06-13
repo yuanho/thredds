@@ -50,7 +50,7 @@ public class SPFactory {
   static public IOServiceProvider getServiceProvider() {
     try {
       if (debug) System.out.println("**********using Service Provider Class = "+spClass.getName());
-      return (IOServiceProvider) spClass.newInstance(); // note: registry
+      return (IOServiceProvider) spClass.newInstance();
     } catch (InstantiationException e) {
       e.printStackTrace();
     } catch (IllegalAccessException e) {
@@ -61,7 +61,7 @@ public class SPFactory {
 
   static public void setServiceProvider(String spName) throws ClassNotFoundException, InstantiationException, IllegalAccessException {
     spClass = Class.forName(spName);
-    spClass.newInstance(); // fail fast   // note: registry
+    spClass.newInstance(); // fail fast
     if (debug) System.out.println("**********NetcCDF Service Provider Class set to = "+spName);
   }
 

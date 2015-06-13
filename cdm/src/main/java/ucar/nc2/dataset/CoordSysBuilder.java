@@ -224,7 +224,7 @@ public class CoordSysBuilder implements CoordSysBuilderIF {
 
     // fail fast - check newInstance works
     try {
-      c.newInstance(); // note: registry
+      c.newInstance();
     } catch (InstantiationException e) {
       throw new IllegalArgumentException("CoordSysBuilderIF Class " + c.getName() + " cannot instantiate, probably need default Constructor");
     } catch (IllegalAccessException e) {
@@ -456,7 +456,7 @@ public class CoordSysBuilder implements CoordSysBuilderIF {
     if (builder == null) {
       // get an instance of the class
       try {
-        builder = (CoordSysBuilderIF) convClass.newInstance(); // note: registry
+        builder = (CoordSysBuilderIF) convClass.newInstance();
       } catch (Exception e) {
         log.error("failed on CoordSysBuilderIF for " + convClass.getName(), e);
         return null;

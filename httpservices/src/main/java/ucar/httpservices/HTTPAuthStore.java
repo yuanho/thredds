@@ -120,7 +120,7 @@ public class HTTPAuthStore implements Serializable
                 this.scope = HTTPAuthScope.deserializeScope(ois);
                 Object o = ois.readObject();
                 if(o instanceof Class)
-                    this.provider = (CredentialsProvider) ((Class) o).newInstance(); // note: registry
+                    this.provider = (CredentialsProvider) ((Class) o).newInstance();
                 else
                     this.provider = (CredentialsProvider) o;
             } catch (IOException ioe) {

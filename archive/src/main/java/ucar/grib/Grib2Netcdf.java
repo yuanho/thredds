@@ -115,7 +115,7 @@ public class Grib2Netcdf {
       Class c = GribServiceProvider.class;
       IOServiceProvider iosp = null;
       try {
-        iosp = (IOServiceProvider) c.newInstance();  // note: registry
+        iosp = (IOServiceProvider) c.newInstance();
       } catch (InstantiationException e) {
         throw new IOException("IOServiceProvider " + c.getName() + "must have no-arg constructor.");
       } catch (IllegalAccessException e) {

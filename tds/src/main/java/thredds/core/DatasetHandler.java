@@ -124,7 +124,7 @@ public class DatasetHandler {
     // create instance of the class
     Object instance;
     try {
-      instance = vClass.newInstance();  // note: registry
+      instance = vClass.newInstance();
     } catch (InstantiationException e) {
       log.error("Attempt to load Viewer class " + className + " cannot instantiate, probably need default Constructor.");
       return;

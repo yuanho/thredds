@@ -113,7 +113,7 @@ public class HTTPConstantProvider implements CredentialsProvider, Credentials, S
             this.creds = (Credentials) o;
         else {
             try {
-                this.creds = (Credentials) ((Class) o).newInstance(); // note: registry
+                this.creds = (Credentials) ((Class) o).newInstance();
             } catch (Exception e) {
                 throw new ClassNotFoundException("HTTPCredsProvider: Cannot create Credentials instance", e);
             }
