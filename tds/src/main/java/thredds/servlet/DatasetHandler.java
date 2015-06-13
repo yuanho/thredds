@@ -102,8 +102,7 @@ public class DatasetHandler {
     debugHandler.addAction(act);
   }
 
-  static public void registerDatasetSource(String className)
-  {
+  static public void registerDatasetSource(String className) {
     Class vClass;
     try {
       vClass = DatasetHandler.class.getClassLoader().loadClass(className);

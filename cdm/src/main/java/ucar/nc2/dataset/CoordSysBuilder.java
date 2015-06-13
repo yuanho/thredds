@@ -258,8 +258,7 @@ public class CoordSysBuilder implements CoordSysBuilderIF {
    * @param className      name of class that implements CoordSysBuilderIF.
    * @throws ClassNotFoundException if class could not be loaded
    */
-  static public void registerConvention(String conventionName, String className) // note:registry
-      throws ClassNotFoundException {
+  static public void registerConvention(String conventionName, String className) throws ClassNotFoundException {
     Class c = Class.forName(className);
     registerConvention(conventionName, c, null);
   }

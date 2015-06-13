@@ -90,8 +90,7 @@ public class TypedDatasetFactory {
     * @param datatype  scientific data type
     * @throws ClassNotFoundException if loading error
     */
-   static public void registerFactory( FeatureType datatype, String className)
-    throws ClassNotFoundException {
+   static public void registerFactory( FeatureType datatype, String className) throws ClassNotFoundException {
      Class c = Class.forName( className);
      registerFactory( datatype, c);
    }

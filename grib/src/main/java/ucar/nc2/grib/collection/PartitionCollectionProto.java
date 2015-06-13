@@ -6,8 +6,7 @@ package ucar.nc2.grib.collection;
 public final class PartitionCollectionProto {
   private PartitionCollectionProto() {}
   public static void registerAllExtensions(
-      com.google.protobuf.ExtensionRegistry registry)
-  {
+      com.google.protobuf.ExtensionRegistry registry) {
     registry.add(ucar.nc2.grib.collection.PartitionCollectionProto.partition);
     registry.add(ucar.nc2.grib.collection.PartitionCollectionProto.partitions);
     registry.add(ucar.nc2.grib.collection.PartitionCollectionProto.isPartitionOfPartitions);

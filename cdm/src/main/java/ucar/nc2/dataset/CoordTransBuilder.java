@@ -129,8 +129,7 @@ public class CoordTransBuilder {
    * @param className name of class that implements CoordTransBuilderIF.
    * @throws ClassNotFoundException if Class.forName( className) fails
    */
-  static public void registerTransform( String transformName, String className)
-      throws ClassNotFoundException {
+  static public void registerTransform( String transformName, String className) throws ClassNotFoundException {
     Class c = Class.forName( className);
     registerTransform( transformName, c);
   }
