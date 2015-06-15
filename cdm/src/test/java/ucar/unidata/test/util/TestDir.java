@@ -311,7 +311,12 @@ public class TestDir {
     File[] allFiles = allDir.listFiles();
     if (null == allFiles) {
       System.out.println("---------------INVALID "+dirName);
-      throw new FileNotFoundException("Cant open "+dirName);
+      //dmh: I do not think that throwing an exception is a good idea here.
+      // you need to make as few assumptions as possible about when and where
+      // this code is executed. For example when an arbitrary single test
+      // is being executed.
+      // throw new FileNotFoundException("Cant open "+dirName);
+      return count;
     }
     List<File> flist = Arrays.asList(allFiles);
     Collections.sort(flist);

@@ -34,21 +34,20 @@
 package ucar.httpservices;
 
 import org.apache.http.*;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.client.entity.GzipDecompressingEntity;
+import org.apache.http.entity.AbstractHttpEntity;
+import org.apache.http.message.BasicHeader;
 import org.apache.http.protocol.HttpContext;
 
 import java.io.*;
-import java.nio.charset.Charset;
-import java.util.ArrayList;
-import java.util.List;
+import java.net.*;
+import java.util.*;
+
+import static org.apache.http.auth.AuthScope.*;
 
 abstract public class HTTPUtil
 {
-
-    //////////////////////////////////////////////////
-    // Constants
-
-    public static final Charset UTF8 = Charset.forName("UTF-8");
-    public static final Charset ASCII = Charset.forName("US-ASCII");
 
     //////////////////////////////////////////////////
     // Interceptors
@@ -61,9 +60,10 @@ abstract public class HTTPUtil
         protected HttpResponse response = null;
         protected boolean printheaders = false;
 
-        public void setPrint(boolean tf)
+        public InterceptCommon setPrint(boolean tf)
         {
             this.printheaders = tf;
+            return this;
         }
 
         public void
@@ -112,28 +112,26 @@ abstract public class HTTPUtil
                 Header[] hdrs = this.request.getAllHeaders();
                 if(hdrs == null) hdrs = new Header[0];
                 System.err.println("Request Headers:");
-                for(Header h : hdrs) {
+                for(Header h : hdrs)
                     System.err.println(h.toString());
-                }
             }
             if(this.response != null) {
                 Header[] hdrs = this.response.getAllHeaders();
                 if(hdrs == null) hdrs = new Header[0];
                 System.err.println("Response Headers:");
-                for(Header h : hdrs) {
+                for(Header h : hdrs)
                     System.err.println(h.toString());
-                }
             }
             System.err.flush();
         }
     }
 
     static public class InterceptResponse extends InterceptCommon
-            implements HttpResponseInterceptor
+        implements HttpResponseInterceptor
     {
         synchronized public void
         process(HttpResponse response, HttpContext context)
-                throws HttpException, IOException
+            throws HttpException, IOException
         {
             this.response = response;
             this.context = context;
@@ -141,46 +139,80 @@ abstract public class HTTPUtil
                 printHeaders();
             else if(this.response != null) {
                 Header[] hdrs = this.response.getAllHeaders();
-                for(int i = 0; i < hdrs.length; i++) {
+                for(int i = 0;i < hdrs.length;i++)
                     headers.add(hdrs[i]);
-                }
             }
         }
     }
 
     static public class InterceptRequest extends InterceptCommon
-            implements HttpRequestInterceptor
+        implements HttpRequestInterceptor
     {
-        HttpRequest req = null;
-
         synchronized public void
         process(HttpRequest request, HttpContext context)
-                throws HttpException, IOException
+            throws HttpException, IOException
         {
-            this.req = request;
+            this.request = request;
             this.context = context;
             if(this.printheaders)
                 printHeaders();
-            else if(this.req != null) {
-                Header[] hdrs = this.req.getAllHeaders();
-                for(int i = 0; i < hdrs.length; i++) {
+            else if(this.request != null) {
+                Header[] hdrs = this.request.getAllHeaders();
+                for(int i = 0;i < hdrs.length;i++)
                     headers.add(hdrs[i]);
+            }
+        }
+    }
+
+    /**
+     * Temporary hack to remove Content-Encoding: XXX-Endian headers
+     */
+    static public class ContentEncodingInterceptor extends InterceptCommon
+        implements HttpResponseInterceptor
+    {
+        synchronized public void
+        process(HttpResponse response, HttpContext context)
+            throws HttpException, IOException
+        {
+            if(response == null) return;
+            Header[] hdrs = response.getAllHeaders();
+            if(hdrs == null) return;
+            boolean modified = false;
+            for(int i=0;i < hdrs.length;i++) {
+                Header h = hdrs[i];
+                if(!h.getName().equalsIgnoreCase("content-encoding")) continue;
+                String value = h.getValue();
+                if(value.trim().toLowerCase().endsWith("-endian")) {
+                    hdrs[i] = new BasicHeader("X-Content-Encoding",value);
+                    modified = true;
+                }
+            }
+            if(modified)
+                response.setHeaders(hdrs);
+            // Similarly, suppress encoding for Entity
+            HttpEntity entity= response.getEntity();
+            Header ceheader = entity.getContentEncoding();
+            if (ceheader != null) {
+                String value = ceheader.getValue();
+                if(value.trim().toLowerCase().endsWith("-endian")) {
+                    int x = 0;//entity.setContentEncoding(new BasicHeader("Content-Encoding","Identity"));
                 }
             }
         }
     }
+
 
     //////////////////////////////////////////////////
     // Misc.
 
     static public byte[]
     readbinaryfile(InputStream stream)
-            throws IOException
+        throws IOException
     {
         // Extract the stream into a bytebuffer
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         byte[] tmp = new byte[1 << 16];
-        for(; ; ) {
+        for(;;) {
             int cnt;
             cnt = stream.read(tmp);
             if(cnt <= 0) break;
@@ -189,54 +221,63 @@ abstract public class HTTPUtil
         return bytes.toByteArray();
     }
 
-    static public File
-    fillTempFile(String base, String content)
-            throws IOException
+    static public String getCanonicalURL(String legalurl)
     {
-        // Locate a temp directory
-        String tmppath = System.getenv("TEMP");
-        if(tmppath == null || tmppath.length() == 0)
-            tmppath = "/tmp";
-        File tmpdir = new File(tmppath);
-        if(!tmpdir.exists() || !tmpdir.canWrite())
-            throw new IOException("Cannot create temp file: no tmp dir");
+        if(legalurl == null) return null;
+        int index = legalurl.indexOf('?');
+        if(index >= 0) legalurl = legalurl.substring(0, index);
+        // remove any trailing extensuion
+        //index = legalurl.lastIndexOf('.');
+        //if(index >= 0) legalurl = legalurl.substring(0,index);
+        return canonicalpath(legalurl);
+    }
+
+    /**
+     * Convert path to use '/' consistently and
+     * to remove any trailing '/'
+     *
+     * @param path convert this path
+     * @return canonicalized version
+     */
+    static public String canonicalpath(String path)
+    {
+        if(path == null) return null;
+        path = path.replace('\\', '/');
+        if(path.endsWith("/"))
+            path = path.substring(0, path.length() - 1);
+        return path;
+    }
+
+    static public URL
+    removeprincipal(URL u)
+    {
+        // Must be a simpler way
         try {
-            String suffix;
-            String prefix;
-            int index = base.lastIndexOf('.');
-            if(index < 0) index = base.length();
-            suffix = base.substring(index, base.length());
-            prefix = base.substring(0, index);
-            if(prefix.length() == 0)
-                throw new IOException("Malformed base: " + base);
-            File f = File.createTempFile(prefix, suffix, tmpdir);
-            // Fill with the content
-            FileOutputStream fw = new FileOutputStream(f);
-            fw.write(content.getBytes(UTF8));
-            fw.close();
-            return f;
-        } catch (IOException e) {
-            throw new IOException("Cannot create temp file", e);
+            return new URI(u.getProtocol(), null, u.getHost(), u.getPort(),
+                u.getPath(), u.getQuery(), u.getRef()).toURL();
+        } catch (URISyntaxException | MalformedURLException ex) {
+            HTTPSession.log.error("Malformed url: "+u.toString());
+            return null;
         }
     }
 
-    /**
-     * @return {@code true} if the objects are equal or both null
-     */
-    public static boolean equals(final Object obj1, final Object obj2)
+    static public String makerealm(URL url)
     {
-        return obj1 == null ? obj2 == null : obj1.equals(obj2);
+        return makerealm(url.getHost(), url.getPort());
     }
 
-    /**
-     * @return {@code true} if the objects are equal or both null
-     */
-    public static boolean schemeEquals(String s1, String s2)
+    static public String makerealm(AuthScope scope)
     {
-        if(s1 == s2) return true;
-        if((s1 == null) ^ (s2 == null)) return false;
-        if((s1.length() == 0) ^ (s2.length() == 0)) return true;
-        return s1.equals(s2);
+        return makerealm(scope.getHost(), scope.getPort());
+    }
+
+    static public String makerealm(String host, int port)
+    {
+        if(host == null) host = ANY_HOST;
+        if(host == ANY_HOST)
+            return ANY_REALM;
+        String sport = (port <= 0 || port == ANY_PORT) ? "" : String.format("%d", port);
+        return host + ":" + sport;
     }
 
 

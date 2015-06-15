@@ -56,6 +56,9 @@ import java.util.List;
  * repeatedly calls the server in checkifdods() with
  * a new HTTPSession, so we get repeated requests to
  * the credentials provider.
+ *
+ * Note for apache httpclient 4.3: not clear if this is still
+ * needed or if BasicCredentialsProvider handles caching.
  */
 
 public class HTTPCachingProvider implements CredentialsProvider
@@ -88,13 +91,17 @@ public class HTTPCachingProvider implements CredentialsProvider
     // Instance variables
 
     protected HTTPAuthStore store = null;
+    protected AuthScope authscope = null; // for verification
+    protected String principal = null;
 
     //////////////////////////////////////////////////
     // Constructor(s)
 
-    public HTTPCachingProvider(HTTPAuthStore store)
+    public HTTPCachingProvider(HTTPAuthStore store, AuthScope authscope, String principal)
     {
         this.store = store;
+        this.authscope = authscope;
+        this.principal = principal;
     }
 
     //////////////////////////////////////////////////
@@ -103,13 +110,32 @@ public class HTTPCachingProvider implements CredentialsProvider
     synchronized public Credentials
     getCredentials(AuthScope scope)
     {
+        // Is this still true in httpclient 4.2.x?
+        // There appears to be a bug in HttpMethodDirector such that
+        // as long as bad credentials are provided, it will keep on
+        // calling the credentials provider.  We fix by checking for
+        // retry in same way as HttpMethodDirector.processWWWAuthChallenge.
+        // After MAX_RETRIES, we force retries to stop.
+        // do: AuthState authstate = method.getMethod().getHostAuthState();
+        //if(retryCount == 0 && authstate.isAuthAttempted() && authscheme.isComplete()) {
+        //    return null; // Stop the retry.
+        //}
+        //retryCount--;
+
         if(TESTING) {
             System.err.println("HTTPCachingProvider.getCredentials,arg " + scope.toString());
+            System.err.println("HTTPCachingProvider.getCredentials,intern " + this.authscope.toString());
             System.err.flush();
         }
 
+/* Remove because of redirects
+        // Verify that the scope argument "subsumes"
+        // this.authscope
+        if(!HTTPAuthScope.subsumes(scope, this.authscope))
+            throw new InvalidCredentialsException("HTTPCachingProvider: scope :: authscope mismatch");
+*/
         // See if the credentials have been cached.
-        Credentials credentials = checkCache(scope);
+        Credentials credentials = checkCache(principal, authscope);
         if(credentials != null) {
             if(TESTING)
                 System.err.println("Using cached credentials: " + credentials);
@@ -123,40 +149,46 @@ public class HTTPCachingProvider implements CredentialsProvider
         String scheme = scope.getScheme();
         try {
             if(scheme == null)
-                throw new InvalidCredentialsException("HTTPCachingProvider: null scope scheme: " + scope);
+                throw new InvalidCredentialsException("HTTPCachingProvider: unsupported scheme: " + scope.getScheme());
 
             // search for matching authstore entries
-            CredentialsProvider cp = this.store.lookup(scope);
-            if(cp == null)
-                throw new InvalidCredentialsException("HTTPCachingProvider: no credentialsprovider that match Authorization scope:" + scope);
+            List<HTTPAuthStore.Entry> matches = this.store.search(this.principal, this.authscope);
+            if(matches.size() == 0)
+                throw new InvalidCredentialsException("HTTPCachingProvider: no match for:" + this.authscope);
+
+            // Choose the most restrictive
+            HTTPAuthStore.Entry entry = matches.get(0);
+            CredentialsProvider provider = entry.provider;
+
+            if(provider == null)
+                throw new InvalidCredentialsException("HTTPCachingProvider: no credentials provider provided");
 
             // Invoke the (real) credentials provider
             // using the incoming parameters
-            credentials = cp.getCredentials(scope);
+            credentials = provider.getCredentials(scope);
             if(credentials == null)
                 throw new InvalidCredentialsException("HTTPCachingProvider: cannot obtain credentials");
 
             // Insert into the credentials cache
-            cacheCredentials(scope, credentials);
+            cacheCredentials(entry.principal, this.authscope, credentials);
 
             if(TESTING)
                 System.err.println("Caching credentials: " + credentials);
 
             return credentials;
         } catch (InvalidCredentialsException ice) {
-            HTTPSession.log.debug(ice.getMessage());
+            HTTPSession.log.error(ice.getMessage());
             return null;
         }
     }
 
-    public void setCredentials(AuthScope scope, Credentials creds)
+    synchronized public void setCredentials(AuthScope scope, Credentials creds)
     {
-        cacheCredentials(scope, creds);
+        cacheCredentials(HTTPAuthStore.ANY_PRINCIPAL, this.authscope, creds);
     }
 
-    public void clear()
+    synchronized public void clear()
     {
-          cache.clear();
     }
 
     ///////////////////////////////////////////////////
@@ -165,32 +197,34 @@ public class HTTPCachingProvider implements CredentialsProvider
     public String
     toString()
     {
-        return "HTTPCachingProvider";
+        return "HTTPCachingProvider(" + this.authscope + ")";
     }
 
 
     //////////////////////////////////////////////////
     // Credentials cache
 
-    static public class Auth
+    static public class Triple
     {
+        public String principal;
         public AuthScope scope;
         public Credentials creds;
 
-        public Auth(AuthScope scope, Credentials creds)
+        public Triple(String principal, AuthScope scope, Credentials creds)
         {
+            this.principal = principal;
             this.scope = scope;
             this.creds = creds;
         }
 
         public String toString()
         {
-            return "(" + this.scope.toString() + "," + creds.toString() + ")";
+            return "(" + this.principal + "," + this.scope.toString() + "," + creds.toString() + ")";
         }
     }
 
-    static protected List<Auth> cache = new ArrayList<Auth>();
-    static protected List<Auth> testlist = null; // for testing
+    static protected List<Triple> cache = new ArrayList<Triple>();
+    static protected List<Triple> testlist = null; // for testing
 
     /**
      * Insert a credentials into the cache; will return
@@ -201,12 +235,12 @@ public class HTTPCachingProvider implements CredentialsProvider
      * @return the old credentials object if overwriting, else null
      */
     static protected synchronized Credentials
-    cacheCredentials(AuthScope scope, Credentials creds)
+    cacheCredentials(String principal, AuthScope scope, Credentials creds)
     {
-        Auth p = null;
+        Triple p = null;
         Credentials old = null;
 
-        for(Auth t : HTTPCachingProvider.cache) {
+        for(Triple t : HTTPCachingProvider.cache) {
             if(t.scope.equals(scope)) {
                 p = t;
                 break;
@@ -216,7 +250,7 @@ public class HTTPCachingProvider implements CredentialsProvider
             old = p.creds;
             p.creds = creds;
         } else {
-            p = new Auth(scope, creds);
+            p = new Triple(principal, scope, creds);
             HTTPCachingProvider.cache.add(p);
         }
         return old;
@@ -225,15 +259,16 @@ public class HTTPCachingProvider implements CredentialsProvider
     /**
      * Retrieve a credentials from the cache.
      *
+     * @param principal a key for retrieving a credentials object.
      * @param scope     a key for retrieving a credentials object.
      * @return the matching credentials object, else null
      */
     static synchronized protected Credentials
-    checkCache(AuthScope scope)
+    checkCache(String principal, AuthScope scope)
     {
         Credentials creds = null;
-        for(Auth p : HTTPCachingProvider.cache) {
-            if(HTTPAuthUtil.equals(p.scope, scope)) {
+        for(Triple p : HTTPCachingProvider.cache) {
+            if(HTTPAuthScope.identical(p.scope, scope)) {
                 creds = p.creds;
                 break;
             }
@@ -248,16 +283,16 @@ public class HTTPCachingProvider implements CredentialsProvider
     invalidate(AuthScope scope)
     {
         if(TESTING) {
-            if(testlist == null) testlist = new ArrayList<Auth>();
+            if(testlist == null) testlist = new ArrayList<Triple>();
         }
         // walk backward because we are removing entries
         for(int i = HTTPCachingProvider.cache.size() - 1; i >= 0; i--) {
-            Auth p = HTTPCachingProvider.cache.get(i);
-            if(HTTPAuthUtil.equals(scope, p.scope)) {
+            Triple p = HTTPCachingProvider.cache.get(i);
+            if(HTTPAuthScope.equivalent(scope, p.scope)) {
                 if(TESTING) {
                     System.err.println("invalidating: " + p);
                     if(testlist == null)
-                        testlist = new ArrayList<Auth>();
+                        testlist = new ArrayList<Triple>();
                     testlist.add(p);
                 }
                 HTTPCachingProvider.cache.remove(i);
@@ -271,20 +306,20 @@ public class HTTPCachingProvider implements CredentialsProvider
         HTTPCachingProvider.cache.clear();
     }
 
-    static synchronized public List<Auth>// for testing
+    static synchronized public List<Triple>// for testing
     getCache()
     {
-        List<Auth> localcache = new ArrayList<Auth>();
-        for(Auth p : HTTPCachingProvider.cache) {
-            Auth newp = new Auth(p.scope, p.creds);
+        List<Triple> localcache = new ArrayList<Triple>();
+        for(Triple p : HTTPCachingProvider.cache) {
+            Triple newp = new Triple(p.principal, p.scope, p.creds);
             localcache.add(newp);
         }
         return localcache;
     }
 
-    static synchronized public List<Auth> getTestList()
+    static synchronized public List<Triple> getTestList()
     {
-        List<Auth> list = new ArrayList<Auth>();
+        List<Triple> list = new ArrayList<Triple>();
         list.addAll(testlist);
         if(testlist != null)
             testlist.clear();

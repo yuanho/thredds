@@ -74,6 +74,26 @@ public class HTTPMethodStream extends FilterInputStream implements AutoCloseable
 	this.stream = stream;
     }
 
+    public int read()
+	throws IOException
+    {
+            try {
+                return super.read();
+            } catch (IOException ioe) {
+                throw ioe;
+            }
+    }
+
+    public int read(byte b[], int off, int len)
+	throws IOException
+    {
+            try {
+                return super.read(b,off,len);
+            } catch (IOException ioe) {
+                throw ioe;
+            }
+    }
+
     boolean getClosed() {return closed;}
 
     InputStream getStream() {return stream;}
