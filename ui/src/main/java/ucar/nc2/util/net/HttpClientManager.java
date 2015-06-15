@@ -105,7 +105,7 @@ public class HttpClientManager
         HTTPSession useSession = session;
         try {
             if(useSession == null)
-                useSession = HTTPFactory.newSession();
+                useSession = HTTPFactory.newSession(urlencoded);
             HTTPMethod m = HTTPFactory.Get(useSession,urlencoded);
             m.execute();
             return m.getResponseAsString();

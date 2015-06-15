@@ -33,6 +33,15 @@
 
 package ucar.httpservices;
 
+import java.io.*;
+import java.net.MalformedURLException;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.util.*;
+
+import org.apache.http.*;
+import org.apache.http.client.methods.*;
+
 /**
  * HTTPFactory creates method instance.
  * This code was originally in HttpMethod.
@@ -43,11 +52,6 @@ public class HTTPFactory
 
     //////////////////////////////////////////////////////////////////////////
     // Static factory methods for creating HTTPSession instances
-
-    static public HTTPSession newSession() throws HTTPException
-    {
-        return new HTTPSession();
-    }
 
     static public HTTPSession newSession(String legalurl) throws HTTPException
     {

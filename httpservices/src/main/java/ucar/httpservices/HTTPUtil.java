@@ -34,11 +34,17 @@
 package ucar.httpservices;
 
 import org.apache.http.*;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.client.entity.GzipDecompressingEntity;
+import org.apache.http.entity.AbstractHttpEntity;
+import org.apache.http.message.BasicHeader;
 import org.apache.http.protocol.HttpContext;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.List;
+import java.net.*;
+import java.util.*;
+
+import static org.apache.http.auth.AuthScope.*;
 
 abstract public class HTTPUtil
 {
@@ -54,9 +60,10 @@ abstract public class HTTPUtil
         protected HttpResponse response = null;
         protected boolean printheaders = false;
 
-        public void setPrint(boolean tf)
+        public InterceptCommon setPrint(boolean tf)
         {
             this.printheaders = tf;
+            return this;
         }
 
         public void
@@ -141,23 +148,59 @@ abstract public class HTTPUtil
     static public class InterceptRequest extends InterceptCommon
         implements HttpRequestInterceptor
     {
-        HttpRequest req = null;
-
         synchronized public void
         process(HttpRequest request, HttpContext context)
             throws HttpException, IOException
         {
-            this.req = request;
+            this.request = request;
             this.context = context;
             if(this.printheaders)
                 printHeaders();
-            else if(this.req != null) {
-                Header[] hdrs = this.req.getAllHeaders();
+            else if(this.request != null) {
+                Header[] hdrs = this.request.getAllHeaders();
                 for(int i = 0;i < hdrs.length;i++)
                     headers.add(hdrs[i]);
             }
         }
     }
+
+    /**
+     * Temporary hack to remove Content-Encoding: XXX-Endian headers
+     */
+    static public class ContentEncodingInterceptor extends InterceptCommon
+        implements HttpResponseInterceptor
+    {
+        synchronized public void
+        process(HttpResponse response, HttpContext context)
+            throws HttpException, IOException
+        {
+            if(response == null) return;
+            Header[] hdrs = response.getAllHeaders();
+            if(hdrs == null) return;
+            boolean modified = false;
+            for(int i=0;i < hdrs.length;i++) {
+                Header h = hdrs[i];
+                if(!h.getName().equalsIgnoreCase("content-encoding")) continue;
+                String value = h.getValue();
+                if(value.trim().toLowerCase().endsWith("-endian")) {
+                    hdrs[i] = new BasicHeader("X-Content-Encoding",value);
+                    modified = true;
+                }
+            }
+            if(modified)
+                response.setHeaders(hdrs);
+            // Similarly, suppress encoding for Entity
+            HttpEntity entity= response.getEntity();
+            Header ceheader = entity.getContentEncoding();
+            if (ceheader != null) {
+                String value = ceheader.getValue();
+                if(value.trim().toLowerCase().endsWith("-endian")) {
+                    int x = 0;//entity.setContentEncoding(new BasicHeader("Content-Encoding","Identity"));
+                }
+            }
+        }
+    }
+
 
     //////////////////////////////////////////////////
     // Misc.
@@ -177,5 +220,65 @@ abstract public class HTTPUtil
         }
         return bytes.toByteArray();
     }
+
+    static public String getCanonicalURL(String legalurl)
+    {
+        if(legalurl == null) return null;
+        int index = legalurl.indexOf('?');
+        if(index >= 0) legalurl = legalurl.substring(0, index);
+        // remove any trailing extensuion
+        //index = legalurl.lastIndexOf('.');
+        //if(index >= 0) legalurl = legalurl.substring(0,index);
+        return canonicalpath(legalurl);
+    }
+
+    /**
+     * Convert path to use '/' consistently and
+     * to remove any trailing '/'
+     *
+     * @param path convert this path
+     * @return canonicalized version
+     */
+    static public String canonicalpath(String path)
+    {
+        if(path == null) return null;
+        path = path.replace('\\', '/');
+        if(path.endsWith("/"))
+            path = path.substring(0, path.length() - 1);
+        return path;
+    }
+
+    static public URL
+    removeprincipal(URL u)
+    {
+        // Must be a simpler way
+        try {
+            return new URI(u.getProtocol(), null, u.getHost(), u.getPort(),
+                u.getPath(), u.getQuery(), u.getRef()).toURL();
+        } catch (URISyntaxException | MalformedURLException ex) {
+            HTTPSession.log.error("Malformed url: "+u.toString());
+            return null;
+        }
+    }
+
+    static public String makerealm(URL url)
+    {
+        return makerealm(url.getHost(), url.getPort());
+    }
+
+    static public String makerealm(AuthScope scope)
+    {
+        return makerealm(scope.getHost(), scope.getPort());
+    }
+
+    static public String makerealm(String host, int port)
+    {
+        if(host == null) host = ANY_HOST;
+        if(host == ANY_HOST)
+            return ANY_REALM;
+        String sport = (port <= 0 || port == ANY_PORT) ? "" : String.format("%d", port);
+        return host + ":" + sport;
+    }
+
 
 }

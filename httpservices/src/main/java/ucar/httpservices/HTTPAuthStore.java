@@ -199,7 +199,10 @@ public class HTTPAuthStore implements Serializable
     }
 
     //COVERITY[GUARDED_BY_VIOLATION]
-    static public synchronized HTTPAuthStore getDefault() {return DEFAULT;}
+    static public synchronized HTTPAuthStore getDefault()
+    {
+        return DEFAULT;
+    }
 
     //////////////////////////////////////////////////
     // Instance variables
@@ -223,7 +226,8 @@ public class HTTPAuthStore implements Serializable
         if(isdefault) {
  	    // For back compatibility, check key/trust store flags
             // and add appropriate entries
-   	    HTTPSession.setGlobalKeyStore();
+            HTTPSession.setGlobalKeyStoreFromD();
+
         }
     }
 
@@ -470,17 +474,14 @@ public class HTTPAuthStore implements Serializable
     deserialize(InputStream istream, String password)
             throws HTTPException
     {
-        ObjectInputStream ois = null;
         try {
-            ois = openobjectstream(istream, password);
+            try (ObjectInputStream ois = openobjectstream(istream, password)) {
             List<Entry> entries = getDeserializedEntries(ois);
-            for(Entry e : entries) {
+                for(Entry e : entries)
                 insert(e);
             }
-        } finally {
-            if(ois != null) try {
-                ois.close();
-            } catch (IOException e) {/*ignore*/}
+        } catch (IOException ioe) {
+            throw new HTTPException(ioe);
         }
     }
 
