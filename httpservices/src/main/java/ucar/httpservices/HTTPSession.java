@@ -34,6 +34,46 @@
 package ucar.httpservices;
 
 
+import org.apache.http.*;
+import org.apache.http.annotation.NotThreadSafe;
+import org.apache.http.auth.*;
+import org.apache.http.client.*;
+import org.apache.http.client.CookieStore;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.entity.DeflateDecompressingEntity;
+import org.apache.http.client.entity.GzipDecompressingEntity;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpRequestBase;
+import org.apache.http.client.params.AllClientPNames;
+import org.apache.http.client.protocol.HttpClientContext;
+import org.apache.http.config.Registry;
+import org.apache.http.config.RegistryBuilder;
+import org.apache.http.conn.socket.ConnectionSocketFactory;
+import org.apache.http.conn.socket.PlainConnectionSocketFactory;
+import org.apache.http.conn.ssl.*;
+import org.apache.http.cookie.Cookie;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.*;
+import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+import org.apache.http.protocol.ExecutionContext;
+import org.apache.http.protocol.HttpContext;
+import org.apache.http.ssl.SSLContextBuilder;
+import org.apache.http.ssl.SSLContexts;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLException;
+import java.io.*;
+import java.net.*;
+import java.nio.charset.UnsupportedCharsetException;
+import java.security.*;
+import java.security.cert.CertificateException;
+import java.util.*;
+
+import static org.apache.http.auth.AuthScope.*;
+import static ucar.httpservices.HTTPAuthScope.*;
+
 /**
  * A session is encapsulated in an instance of the class
  * HTTPSession.  The encapsulation is with respect to a specific url
@@ -417,7 +457,7 @@ public class HTTPSession implements AutoCloseable
     static public void setGlobalUserAgent(String useragent)
     {
         if(useragent == null || useragent.length() == 0)
-            throw new IllegalArgumentException(setGlobalUserAgent);
+            throw new IllegalArgumentException("setGlobalUserAgent");
         setGlobalParameter(USER_AGENT, useragent);
     }
 
