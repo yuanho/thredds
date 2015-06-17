@@ -876,7 +876,6 @@ public class HTTPSession implements AutoCloseable
             return;
         this.closed = true;
         List<HTTPMethod> ml = this.methodlist;
-        this.methodlist = null;
         while(ml.size() > 0) {
             HTTPMethod m = ml.remove(0);
             m.close(); // forcibly close
