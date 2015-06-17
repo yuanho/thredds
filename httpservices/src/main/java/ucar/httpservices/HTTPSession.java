@@ -878,8 +878,8 @@ public class HTTPSession implements AutoCloseable
         List<HTTPMethod> ml = this.methodlist;
         this.methodlist = null;
         while(ml.size() > 0) {
-            HTTPMethod m = ml.get(0);
-            m.close(); // forcibly close; will invoke removemethod()
+            HTTPMethod m = ml.remove(0);
+            m.close(); // forcibly close
         }
     }
 
@@ -996,7 +996,7 @@ public class HTTPSession implements AutoCloseable
      */
 
     HttpClientContext
-    execute(HttpRequestBase request)
+    execute(HTTPMethod method, HttpRequestBase request)
         throws HTTPException
     {
         try {
@@ -1019,7 +1019,10 @@ public class HTTPSession implements AutoCloseable
                 this.cachevalid = true;
             }
         }
-        request.setConfig(rb.build());
+        // Save relevant info in the HTTPMethod object
+        RequestConfig rc = rb.build();
+        method.setConfig(rc);
+        request.setConfig(rc);
         CloseableHttpResponse response;
         try {
             response = cachedclient.execute(target, request, this.execcontext);

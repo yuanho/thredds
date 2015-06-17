@@ -178,15 +178,10 @@ public class HTTPMethod implements AutoCloseable
     protected boolean closed = false;
 
     // Ref to httpsession execution context
-    HttpClientContext execcontext = null;
-    HttpRequest request = null;
-    HttpResponse response = null;
-
-    // Note: currently we do no cache e.g. RequestConfig and Request
-    // So: Created on demand
-    //protected RequestConfig config = null;
-    //protected HttpRequestBase request = null;
-    //protected HttpResponse response = null;
+    protected HttpClientContext execcontext = null;
+    protected HttpRequest request = null;
+    protected HttpResponse response = null;
+    protected RequestConfig config = null;
 
     //////////////////////////////////////////////////
     // Constructor(s)
@@ -254,7 +249,7 @@ public class HTTPMethod implements AutoCloseable
 
         setcontent(request);
 
-        this.execcontext = session.execute(request);
+        this.execcontext = session.execute(this,request);
         this.request = this.execcontext.getRequest();
         this.response = this.execcontext.getResponse();
         int code = this.response.getStatusLine().getStatusCode();
@@ -355,6 +350,12 @@ public class HTTPMethod implements AutoCloseable
     {
         return ((this.response == null) ? 0 : this.response.getStatusLine().getStatusCode());
     }
+
+    public RequestConfig getConfig() {return this.config;}
+
+    void setConfig(RequestConfig rc) {this.config = rc;}
+
+    public HttpResponse getResponse() {return this.response;}
 
     public String getStatusLine()
     {
