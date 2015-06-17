@@ -32,6 +32,7 @@
 
 package ucar.nc2.util.net;
 
+import org.apache.http.client.config.RequestConfig;
 import org.junit.Before;
 import ucar.httpservices.*;
 
@@ -107,6 +108,7 @@ public class TestHTTPSession extends UnitTestCommon
 
             System.out.println("Test: HTTPSession.setUserAgent(" + SESSIONAGENT + ")");
             HTTPSession.debugReset();
+            HTTPSession.debugHeaders(false);
             session.setUserAgent(SESSIONAGENT);
             method = HTTPFactory.Get(session,TESTURL1);
             method.execute();
@@ -151,23 +153,24 @@ public class TestHTTPSession extends UnitTestCommon
         System.out.println("*** Pass: Redirects Handled");
         */
 
-            boolean b = dbgreq.getParams().getBooleanParameter(HTTPSession.ALLOW_CIRCULAR_REDIRECTS, true);
+            RequestConfig rc = method.getConfig();
+            boolean b = rc.isCircularRedirectsAllowed();
             System.out.println("Test: Circular Redirects");
             assertTrue("*** Fail: Circular Redirects", b);
             System.out.println("*** Pass: Circular Redirects");
 
             System.out.println("Test: Max Redirects");
-            int n = dbgreq.getParams().getIntParameter(MAX_REDIRECTS, -1);
+            int n = rc.getMaxRedirects();
             assertTrue("*** Fail: Max Redirects", n == 111);
             System.out.println("*** Pass: Max Redirects");
 
             System.out.println("Test: SO Timeout");
-            n = dbgreq.getParams().getIntParameter(SO_TIMEOUT, -1);
+            n = rc.getSocketTimeout();
             assertTrue("*** Fail: SO Timeout", n == 17777);
             System.out.println("*** Pass: SO Timeout");
 
             System.out.println("Test: Connection Timeout");
-            n = dbgreq.getParams().getIntParameter(CONN_TIMEOUT, -1);
+            n = rc.getConnectTimeout();
             assertTrue("*** Fail: Connection Timeout", n == 37777);
             System.out.println("*** Pass: SO Timeout");
 

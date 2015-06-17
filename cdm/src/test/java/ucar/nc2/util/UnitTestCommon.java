@@ -13,6 +13,8 @@ import ucar.unidata.test.Diff;
 import ucar.unidata.test.util.TestDir;
 
 import java.io.*;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.Charset;
 import java.util.EnumSet;
 import java.util.Set;
@@ -57,7 +59,7 @@ public class UnitTestCommon extends TestCase
         if(path.endsWith("/")) path = path.substring(0, path.length() - 1);
 
         File prefix = new File(path);
-        for(; prefix != null; prefix = prefix.getParentFile()) {//walk up the tree
+        for(;prefix != null;prefix = prefix.getParentFile()) {//walk up the tree
             int found = 0;
             String[] subdirs = prefix.list();
             for(String dirname : subdirs) {
@@ -83,7 +85,7 @@ public class UnitTestCommon extends TestCase
     rebuildpath(String[] pieces, int last)
     {
         StringBuilder buf = new StringBuilder();
-        for(int i = 0; i <= last; i++) {
+        for(int i = 0;i <= last;i++) {
             buf.append("/");
             buf.append(pieces[i]);
         }
@@ -238,7 +240,7 @@ public class UnitTestCommon extends TestCase
 
     protected String
     findServer(String servlet, String svcname, String schema)
-            throws Exception
+        throws Exception
     {
         if(servlet.startsWith("/"))
             servlet = servlet.substring(1);
@@ -281,7 +283,7 @@ public class UnitTestCommon extends TestCase
     // Copy result into the a specified dir
     static public void
     writefile(String path, String content)
-            throws IOException
+        throws IOException
     {
         File f = new File(path);
         if(f.exists()) f.delete();
@@ -293,7 +295,7 @@ public class UnitTestCommon extends TestCase
     // Copy result into the a specified dir
     static public void
     writefile(String path, byte[] content)
-            throws IOException
+        throws IOException
     {
         File f = new File(path);
         if(f.exists()) f.delete();
@@ -304,7 +306,7 @@ public class UnitTestCommon extends TestCase
 
     static public String
     readfile(String filename)
-            throws IOException
+        throws IOException
     {
         StringBuilder buf = new StringBuilder();
         File xx = new File(filename);
@@ -323,7 +325,7 @@ public class UnitTestCommon extends TestCase
 
     static public byte[]
     readbinaryfile(String filename)
-            throws IOException
+        throws IOException
     {
         FileInputStream stream = new FileInputStream(filename);
         byte[] result = readbinaryfile(stream);
@@ -333,12 +335,12 @@ public class UnitTestCommon extends TestCase
 
     static public byte[]
     readbinaryfile(InputStream stream)
-            throws IOException
+        throws IOException
     {
         // Extract the stream into a bytebuffer
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         byte[] tmp = new byte[1 << 16];
-        for(; ; ) {
+        for(;;) {
             int cnt;
             cnt = stream.read(tmp);
             if(cnt <= 0) break;
@@ -349,7 +351,7 @@ public class UnitTestCommon extends TestCase
 
     // Properly access a dataset
     static public NetcdfDataset openDataset(String url)
-            throws IOException
+        throws IOException
     {
         return NetcdfDataset.acquireDataset(null, url, ENHANCEMENT, -1, null, null);
     }
@@ -377,7 +379,7 @@ public class UnitTestCommon extends TestCase
 
     static protected String
     ncdumpmetadata(NetcdfFile ncfile)
-            throws Exception
+        throws Exception
     {
         StringWriter sw = new StringWriter();
         // Print the meta-databuffer using these args to NcdumpW
@@ -393,7 +395,7 @@ public class UnitTestCommon extends TestCase
 
     static protected String
     ncdumpdata(NetcdfFile ncfile)
-            throws Exception
+        throws Exception
     {
         StringWriter sw = new StringWriter();
         // Dump the databuffer
@@ -407,6 +409,40 @@ public class UnitTestCommon extends TestCase
         }
         sw.close();
         return sw.toString();
+    }
+
+    static public Object
+    instantiate(Class cl, Object... args)
+        throws IOException
+    {
+        if(args == null)
+            args = new Object[0];
+        Class<?>[] argtypes = new Class<?>[args.length];
+        for(int i = 0;i < args.length;i++)
+            argtypes[i] = args[i].getClass();
+        try {
+            Constructor con = cl.getConstructor(argtypes);
+            return con.newInstance(args);
+        } catch (NoSuchMethodException
+            | IllegalAccessException
+            | InvocationTargetException
+            | InstantiationException e) {
+            throw new IOException("Could not instantiate class: " + cl.getName(), e);
+        }
+    }
+
+    //Convert the value of a header to some specified type.
+    public Object
+    convertHeader(String value, Class cl, Object dfalt)
+    {
+        // Assume that cl has a
+        Object o;
+        try {
+            o = instantiate(cl, value);
+        } catch (IOException ioe) {
+            o = dfalt;
+        }
+        return o;
     }
 }
 
