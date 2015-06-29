@@ -192,7 +192,6 @@ public class TestFormBuilder extends UnitTestCommon
                     body = text;
                     if(prop_visual)
                         visual(TESTURL, body);
-                    String diffs = compare("TestMultipart", expectedMultipart, text);
                     if(diffs != null) {
                         System.err.println(diffs);
                         pass = false;
