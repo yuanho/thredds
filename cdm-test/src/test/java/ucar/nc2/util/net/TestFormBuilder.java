@@ -38,6 +38,7 @@ import ucar.httpservices.HTTPException;
 import ucar.httpservices.HTTPFactory;
 import ucar.httpservices.HTTPFormBuilder;
 import ucar.httpservices.HTTPMethod;
+import ucar.nc2.util.Json;
 import ucar.nc2.util.UnitTestCommon;
 
 import java.util.ArrayList;
@@ -394,6 +395,7 @@ public class TestFormBuilder extends UnitTestCommon
                     + "  \"powered-by\" : \"http://httpkit.com\",\n"
                     + "  \"uri\" : \"/\"\n"
                     + "}\n";
+
 
     static final String expectedMultipart =
             "{\n"
