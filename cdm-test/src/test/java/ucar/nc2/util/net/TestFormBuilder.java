@@ -38,7 +38,10 @@ import ucar.httpservices.HTTPException;
 import ucar.httpservices.HTTPFactory;
 import ucar.httpservices.HTTPFormBuilder;
 import ucar.httpservices.HTTPMethod;
+import ucar.nc2.util.Json;
 import ucar.nc2.util.UnitTestCommon;
+
+import java.util.Map;
 
 /**
  * Test HttpFormBuilder
@@ -52,7 +55,7 @@ public class TestFormBuilder extends UnitTestCommon
 
     static protected final String TESTURL = "http://echo.httpkit.com";
 
-    static protected final String STDBOUNDARY = "XXXXXXXXXXXXXXXXXXXX";
+    static protected final String FAKEBOUNDARY = "XXXXXXXXXXXXXXXXXXXX";
 
     // Field values to use
     static final String DESCRIPTIONENTRY = "TestFormBuilder";
@@ -102,11 +105,13 @@ public class TestFormBuilder extends UnitTestCommon
                     System.err.println("Bad return code: " + code);
                     pass = false;
                 }
-                body = fixContentLength(body);
-                if(prop_visual)
-                    visual(TESTURL, body);
                 if(pass) {
-                    String diffs = compare("TestFormBuilder.simple", expectedSimple, body);
+                    Object json = Json.parse(body);
+                    cleanup(json, false);
+                    String text = Json.toString(json);
+                    if(prop_visual)
+                        visual(TESTURL, text);
+                    String diffs = compare("TestSimple", expectedSimple, text);
                     if(diffs != null) {
                         System.err.println(diffs);
                         pass = false;
@@ -138,12 +143,14 @@ public class TestFormBuilder extends UnitTestCommon
                     System.err.println("Bad return code: " + code);
                     pass = false;
                 }
-                body = fixContentLength(body);
-                if(prop_visual)
-                    visual(TESTURL, body);
                 if(pass) {
-                    body = fixBoundary(body);
-                    String diffs = compare("TestFormBuilder", expectedMultipart, body);
+                    Object json = Json.parse(body);
+                    cleanup(json, true);
+                    String text = Json.toString(json);
+                    body = text;
+                    if(prop_visual)
+                        visual(TESTURL, body);
+                    String diffs = compare("TestMultipart", expectedMultipart, text);
                     if(diffs != null) {
                         System.err.println(diffs);
                         pass = false;
@@ -162,9 +169,11 @@ public class TestFormBuilder extends UnitTestCommon
     {
         HTTPFormBuilder builder = new HTTPFormBuilder();
 
+        /*
         StringBuffer javaInfo = new StringBuffer();
         javaInfo.append("Java: home: " + System.getProperty("java.home"));
-        javaInfo.append(" version: " + System.getProperty("java.version"));
+        javaInfo.append(" version: " + System.getProperty("java.version"))
+        */
 
         builder.add("fullName", NAMEENTRY);
         builder.add("emailAddress", EMAILENTRY);
@@ -184,87 +193,131 @@ public class TestFormBuilder extends UnitTestCommon
         return builder;
     }
 
-    protected String fixBoundary(String json)
+    protected void cleanup(Object o, boolean multipart)
+            throws HTTPException
     {
-        String[] lines = json.split("\n");
+        Map<String, Object> map = (Map<String, Object>) o;
+        Object oh = map.get("headers");
         String boundary = null;
-        for(int i = 0; i < lines.length; i++) {
-            String line = lines[i];
-            if(line.startsWith("  \"body\":")) {
-                boundary = locateBoundary(line);
-                break;
+        if(oh != null) {
+            Map<String, Object> headers = (Map<String, Object>) oh;
+            String formdata = (String) headers.get("content-type");
+            if(oh != null) {
+                String[] pieces = formdata.split("[ \t]*[;][ \t]*");
+                for(String p : pieces) {
+                    if(p.startsWith("boundary=")) {
+                        boundary = p.substring("boundary=".length(), p.length());
+                        break;
+                    }
+                }
+            }
+            // Remove headers
+            map.remove("headers");
+        }
+        if(multipart && boundary != null) {
+            // Now parse and change the body
+            String body = (String) map.get("body");
+            if(body != null) {
+                String[] lines = body.split("\\r\\n");
+                for(int i = 0; i < lines.length; i++) {
+                    String line = lines[i];
+                    if(line.startsWith("--" + boundary))
+                        lines[i] = "--" + FAKEBOUNDARY;
+                }
+                map.put("body", join(lines, "\n"));
             }
         }
-        if(boundary != null)
-            json = json.replace(boundary, STDBOUNDARY);
-        return json;
     }
 
-    protected String locateBoundary(String line)
+    static protected String join(String[] pieces, String sep)
     {
-        line = line.replace("\\r", "");
-        line = line.replace("\\n", "\n");
-        String[] lines = line.split("\n");
-        int pos1 = lines[0].indexOf("--");
-        if(pos1 < 0) return null;
-        String boundary = lines[0].substring(pos1 + 2, lines[0].length());
-        return boundary;
-    }
-
-    protected String fixContentLength(String json)
-    {
-        String[] lines = json.split("\n");
         StringBuilder buf = new StringBuilder();
-        for(int i = 0; i < lines.length; i++) {
-            String line = lines[i];
-            if(!line.startsWith("    \"content-length\":")) {
-                buf.append(line);
-                buf.append("\n");
-            }
+        for(int i = 0; i < pieces.length; i++) {
+            if(i > 0) buf.append(sep);
+            buf.append(pieces[i]);
         }
         return buf.toString();
     }
 
-
     static final String expectedSimple =
             "{\n"
-                    + "  \"method\": \"POST\",\n"
-                    + "  \"uri\": \"/\",\n"
-                    + "  \"path\": {\n"
-                    + "    \"name\": \"/\",\n"
-                    + "    \"query\": \"\",\n"
-                    + "    \"params\": {}\n"
+                    + "  \"method\" : \"POST\",\n"
+                    + "  \"uri\" : \"/\",\n"
+                    + "  \"path\" : {\n"
+                    + "    \"name\" : \"/\",\n"
+                    + "    \"query\" : \"\",\n"
+                    + "    \"params\" : {}\n"
                     + "  },\n"
-                    + "  \"headers\": {\n"
-                    + "    \"x-forwarded-for\": \"128.117.140.39\",\n"
-                    + "    \"host\": \"echo.httpkit.com\",\n"
-                    + "    \"user-agent\": \"/NetcdfJava/HttpClient4.3\",\n"
-                    + "    \"content-type\": \"application/x-www-form-urlencoded\"\n"
-                    + "  },\n"
-                    + "  \"body\": \"os=Windows+7&organization=UCAR&hardware=Windows&packageVersion=1.0.1&softwarePackage=IDV&description=TestFormBuilder&subject=hello&emailAddress=idv%40ucar.edu&fullName=Mr.+Jones\",\n"
-                    + "  \"ip\": \"127.0.0.1\",\n"
-                    + "  \"powered-by\": \"http://httpkit.com\",\n"
-                    + "  \"docs\": \"http://httpkit.com/echo\"\n"
+                    + "  \"body\" : \"os=Windows+7&organization=UCAR&hardware=Windows&packageVersion=1.0.1&softwarePackage=IDV&description=TestFormBuilder&subject=hello&emailAddress=idv%40ucar.edu&fullName=Mr.+Jones\",\n"
+                    + "  \"ip\" : \"127.0.0.1\",\n"
+                    + "  \"powered-by\" : \"http://httpkit.com\",\n"
+                    + "  \"docs\" : \"http://httpkit.com/echo\"\n"
                     + "}\n";
+
 
     static final String expectedMultipart =
             "{\n"
-                    + "  \"method\": \"POST\",\n"
-                    + "  \"uri\": \"/\",\n"
-                    + "  \"path\": {\n"
-                    + "    \"name\": \"/\",\n"
-                    + "    \"query\": \"\",\n"
-                    + "    \"params\": {}\n"
-                    + "  },\n"
-                    + "  \"headers\": {\n"
-                    + "    \"x-forwarded-for\": \"128.117.140.39\",\n"
-                    + "    \"host\": \"echo.httpkit.com\",\n"
-                    + "    \"user-agent\": \"/NetcdfJava/HttpClient4.3\",\n"
-                    + "    \"content-type\": \"multipart/form-data; boundary=XXXXXXXXXXXXXXXXXXXX; charset=UTF-8\"\n"
-                    + "  },\n"
-                    + "  \"body\": \"--XXXXXXXXXXXXXXXXXXXX\\r\\nContent-Disposition: form-data; name=\\\"os\\\"\\r\\n\\r\\nWindows 7\\r\\n--XXXXXXXXXXXXXXXXXXXX\\r\\nContent-Disposition: form-data; name=\\\"organization\\\"\\r\\n\\r\\nUCAR\\r\\n--XXXXXXXXXXXXXXXXXXXX\\r\\nContent-Disposition: form-data; name=\\\"attachmentOne\\\"; filename=\\\"extra.html\\\"\\r\\nContent-Type: application/octet-stream\\r\\n\\r\\nextra\\r\\n--XXXXXXXXXXXXXXXXXXXX\\r\\nContent-Disposition: form-data; name=\\\"hardware\\\"\\r\\n\\r\\nWindows\\r\\n--XXXXXXXXXXXXXXXXXXXX\\r\\nContent-Disposition: form-data; name=\\\"packageVersion\\\"\\r\\n\\r\\n1.0.1\\r\\n--XXXXXXXXXXXXXXXXXXXX\\r\\nContent-Disposition: form-data; name=\\\"softwarePackage\\\"\\r\\n\\r\\nIDV\\r\\n--XXXXXXXXXXXXXXXXXXXX\\r\\nContent-Disposition: form-data; name=\\\"attachmentThree\\\"; filename=\\\"arbfile\\\"\\r\\nContent-Type: application/octet-stream\\r\\n\\r\\n\\u0001\\u0002\\u0000\\r\\n--XXXXXXXXXXXXXXXXXXXX\\r\\nContent-Disposition: form-data; name=\\\"attachmentTwo\\\"; filename=\\\"bundle.xidv\\\"\\r\\nContent-Type: application/octet-stream\\r\\n\\r\\nbundle\\r\\n--XXXXXXXXXXXXXXXXXXXX\\r\\nContent-Disposition: form-data; name=\\\"description\\\"\\r\\n\\r\\nTestFormBuilder\\r\\n--XXXXXXXXXXXXXXXXXXXX\\r\\nContent-Disposition: form-data; name=\\\"subject\\\"\\r\\n\\r\\nhello\\r\\n--XXXXXXXXXXXXXXXXXXXX\\r\\nContent-Disposition: form-data; name=\\\"emailAddress\\\"\\r\\n\\r\\nidv@ucar.edu\\r\\n--XXXXXXXXXXXXXXXXXXXX\\r\\nContent-Disposition: form-data; name=\\\"fullName\\\"\\r\\n\\r\\nMr. Jones\\r\\n--XXXXXXXXXXXXXXXXXXXX--\\r\\n\",\n"
-                    + "  \"ip\": \"127.0.0.1\",\n"
-                    + "  \"powered-by\": \"http://httpkit.com\",\n"
-                    + "  \"docs\": \"http://httpkit.com/echo\"\n"
-                    + "}\n";
+            +"  \"method\" : \"POST\",\n"
+            +"  \"uri\" : \"/\",\n"
+            +"  \"path\" : {\n"
+            +"    \"name\" : \"/\",\n"
+            +"    \"query\" : \"\",\n"
+            +"    \"params\" : {}\n"
+            +"  },\n"
+            +"  \"body\" : \"--XXXXXXXXXXXXXXXXXXXX\n"
+            +"Content-Disposition: form-data; name=\"os\"\n"
+            +"\n"
+            +"Windows 7\n"
+            +"--XXXXXXXXXXXXXXXXXXXX\n"
+            +"Content-Disposition: form-data; name=\"organization\"\n"
+            +"\n"
+            +"UCAR\n"
+            +"--XXXXXXXXXXXXXXXXXXXX\n"
+            +"Content-Disposition: form-data; name=\"attachmentOne\"; filename=\"extra.html\"\n"
+            +"Content-Type: application/octet-stream\n"
+            +"\n"
+            +"extra\n"
+            +"--XXXXXXXXXXXXXXXXXXXX\n"
+            +"Content-Disposition: form-data; name=\"hardware\"\n"
+            +"\n"
+            +"Windows\n"
+            +"--XXXXXXXXXXXXXXXXXXXX\n"
+            +"Content-Disposition: form-data; name=\"packageVersion\"\n"
+            +"\n"
+            +"1.0.1\n"
+            +"--XXXXXXXXXXXXXXXXXXXX\n"
+            +"Content-Disposition: form-data; name=\"softwarePackage\"\n"
+            +"\n"
+            +"IDV\n"
+            +"--XXXXXXXXXXXXXXXXXXXX\n"
+            +"Content-Disposition: form-data; name=\"attachmentThree\"; filename=\"arbfile\"\n"
+            +"Content-Type: application/octet-stream\n"
+            +"\n"
+            +"u0001u0002u0000\n"
+            +"--XXXXXXXXXXXXXXXXXXXX\n"
+            +"Content-Disposition: form-data; name=\"attachmentTwo\"; filename=\"bundle.xidv\"\n"
+            +"Content-Type: application/octet-stream\n"
+            +"\n"
+            +"bundle\n"
+            +"--XXXXXXXXXXXXXXXXXXXX\n"
+            +"Content-Disposition: form-data; name=\"description\"\n"
+            +"\n"
+            +"TestFormBuilder\n"
+            +"--XXXXXXXXXXXXXXXXXXXX\n"
+            +"Content-Disposition: form-data; name=\"subject\"\n"
+            +"\n"
+            +"hello\n"
+            +"--XXXXXXXXXXXXXXXXXXXX\n"
+            +"Content-Disposition: form-data; name=\"emailAddress\"\n"
+            +"\n"
+            +"idv@ucar.edu\n"
+            +"--XXXXXXXXXXXXXXXXXXXX\n"
+            +"Content-Disposition: form-data; name=\"fullName\"\n"
+            +"\n"
+            +"Mr. Jones\n"
+            +"--XXXXXXXXXXXXXXXXXXXX\",\n"
+            +"  \"ip\" : \"127.0.0.1\",\n"
+            +"  \"powered-by\" : \"http://httpkit.com\",\n"
+            +"  \"docs\" : \"http://httpkit.com/echo\"\n"
+            +"}\n";
 }
