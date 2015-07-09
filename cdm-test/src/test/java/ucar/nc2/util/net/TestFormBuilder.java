@@ -38,7 +38,6 @@ import ucar.httpservices.HTTPException;
 import ucar.httpservices.HTTPFactory;
 import ucar.httpservices.HTTPFormBuilder;
 import ucar.httpservices.HTTPMethod;
-import ucar.nc2.util.Json;
 import ucar.nc2.util.UnitTestCommon;
 
 import java.io.*;
@@ -193,6 +192,7 @@ public class TestFormBuilder extends UnitTestCommon
                     body = text;
                     if(prop_visual)
                         visual(TESTURL, body);
+                    String diffs = compare("TestMultipart", expectedMultipart, text);
                     if(diffs != null) {
                         System.err.println(diffs);
                         pass = false;
@@ -425,7 +425,6 @@ public class TestFormBuilder extends UnitTestCommon
                     + "  \"uri\" : \"/\"\n"
                     + "}\n";
 
-
     static final String expectedMultipart =
             "{\n"
                     + "  \"body\" : \"attachmentOne: extra\n"
@@ -453,3 +452,6 @@ public class TestFormBuilder extends UnitTestCommon
                     + "  \"uri\" : \"/\"\n"
                     + "}\n";
 }
+
+
+
