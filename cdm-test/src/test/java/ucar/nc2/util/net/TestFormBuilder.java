@@ -239,9 +239,11 @@ public class TestFormBuilder extends UnitTestCommon
     protected String localize(String text, String os)
             throws HTTPException
     {
+        System.err.println("os "+os);
         text = text.replace(os, "<OS_NAME>");
         if(os.indexOf(' ') >= 0)
             os = os.replace(' ', '+');
+        System.err.println("os "+os);
         text = text.replace(os, "<OS+NAME>");
         return text;
     }
