@@ -133,10 +133,10 @@ public class HTTPSession implements AutoCloseable
     static final public String HEADER_USERAGENT = "User-Agent";
     static final public String ACCEPT_ENCODING = "Accept-Encoding";
 
-    static final public String BASIC = HTTPAuthPolicy.BASIC;
-    static final public String DIGEST = HTTPAuthPolicy.DIGEST;
-    static final public String NTLM = HTTPAuthPolicy.NTLM;
-    static final public String SSL = HTTPAuthPolicy.SSL;
+    static final public String BASIC = HTTPAuthSchemes.BASIC;
+    static final public String DIGEST = HTTPAuthSchemes.DIGEST;
+    static final public String NTLM = HTTPAuthSchemes.NTLM;
+    static final public String SSL = HTTPAuthSchemes.SSL;
 
     static final int DFALTTHREADCOUNT = 50;
     static final int DFALTREDIRECTS = 25;
@@ -586,7 +586,7 @@ public class HTTPSession implements AutoCloseable
             HTTPSSLProvider sslprovider = new HTTPSSLProvider(keypath, keypassword,
                     trustpath, trustpassword);
             setGlobalCredentialsProvider(
-                    new AuthScope(ANY_HOST, ANY_PORT, ANY_REALM, HTTPAuthPolicy.SSL),
+                    new AuthScope(ANY_HOST, ANY_PORT, ANY_REALM, HTTPAuthSchemes.SSL),
                     sslprovider);
         }
     }
@@ -918,7 +918,7 @@ public class HTTPSession implements AutoCloseable
             if(user != null && pwd != null) {
                 // Create a non-interactive user+pwd handler
                 CredentialsProvider bp = new HTTPBasicProvider(user, pwd);
-                setCredentialsProvider(HTTPAuthPolicy.BASIC, bp);
+                setCredentialsProvider(HTTPAuthSchemes.BASIC, bp);
             }
         }
     }

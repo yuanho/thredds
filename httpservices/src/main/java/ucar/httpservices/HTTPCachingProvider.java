@@ -186,6 +186,7 @@ public class HTTPCachingProvider implements CredentialsProvider
 
     public void clear()
     {
+          cache.clear();
     }
 
     ///////////////////////////////////////////////////

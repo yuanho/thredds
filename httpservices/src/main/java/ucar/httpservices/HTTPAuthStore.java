@@ -75,8 +75,6 @@ public class HTTPAuthStore implements Serializable
     //////////////////////////////////////////////////
     // Constants
 
-    static public final String DEFAULT_SCHEME = HTTPAuthPolicy.BASIC;
-
     static public final String ANY_PRINCIPAL = null;
 
     //////////////////////////////////////////////////
