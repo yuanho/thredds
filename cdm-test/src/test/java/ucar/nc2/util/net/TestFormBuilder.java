@@ -239,12 +239,10 @@ public class TestFormBuilder extends UnitTestCommon
     protected String localize(String text, String os)
             throws HTTPException
     {
-        System.err.println("os "+os);
-        text = text.replace(os, "<OS_NAME>");
-        if(os.indexOf(' ') >= 0)
-            os = os.replace(' ', '+');
-        System.err.println("os "+os);
-        text = text.replace(os, "<OS+NAME>");
+	// Handle case with and without blank/+
+        text = text.replace(os, "<OSNAME>");
+        os = os.replace(' ', '+');
+        text = text.replace(os, "<OSNAME>");
         return text;
     }
 
@@ -414,7 +412,7 @@ public class TestFormBuilder extends UnitTestCommon
 
     static final String expectedSimple =
             "{\n"
-                    + "  \"body\" : \"description=TestFormBuilder&emailAddress=idv%40ucar.edu&fullName=Mr.+Jones&hardware=x86&organization=UCAR&os=<OS+NAME>&packageVersion=1.0.1&softwarePackage=IDV&subject=hello\",\n"
+                    + "  \"body\" : \"description=TestFormBuilder&emailAddress=idv%40ucar.edu&fullName=Mr.+Jones&hardware=x86&organization=UCAR&os=<OSNAME>&packageVersion=1.0.1&softwarePackage=IDV&subject=hello\",\n"
                     + "  \"docs\" : \"http://httpkit.com/echo\",\n"
                     + "  \"ip\" : \"127.0.0.1\",\n"
                     + "  \"method\" : \"POST\",\n"
@@ -437,7 +435,7 @@ public class TestFormBuilder extends UnitTestCommon
                     + "fullName: Mr. Jones\n"
                     + "hardware: x86\n"
                     + "organization: UCAR\n"
-                    + "os: <OS_NAME>\n"
+                    + "os: <OSNAME>\n"
                     + "packageVersion: 1.0.1\n"
                     + "softwarePackage: IDV\n"
                     + "subject: hello\n"
