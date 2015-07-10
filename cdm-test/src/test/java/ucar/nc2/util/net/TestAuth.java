@@ -133,6 +133,7 @@ public class TestAuth extends UnitTestCommon
 
         public void clear()
         {
+            this.callcount = 0;
         }
 
         // Serializable Interface
@@ -228,22 +229,15 @@ public class TestAuth extends UnitTestCommon
             this.password = pwd;
         }
     }
-
     protected AuthDataBasic[] basictests = {
-            new AuthDataBasic("http://" + TestDir.threddsTestServer + "/thredds/restricted/basicAuth",
-                    "remoteUser", "remotePassword"),
-    };
-
-    protected AuthDataBasic[] redirecttests = {
             new AuthDataBasic("http://" + TestDir.threddsTestServer + "/thredds/dodsC/restrict/testData.nc.dds",
-                    "tiggUser", "tigge"),
+                    "tiggeUser", "tigge"),
     };
 
     @Test
     public void
     testBasic() throws Exception
     {
-        if(IGNORE) return;
         // System.out.println("*** Testing: Http Basic Password Authorization");
         HTTPSession.debugHeaders(true);
 
@@ -257,6 +251,7 @@ public class TestAuth extends UnitTestCommon
                 session.setCredentialsProvider(provider);
                 int status = method.execute();
                 System.err.printf("\tlocal provider: status code = %d\n", status);
+                System.err.printf("\t|cache| = %d\n", HTTPCachingProvider.getCache().size());
                 pass = (status == 200 || status == 404); // non-existence is ok
                 // Verify that getCredentials was called only once
                 int count = provider.getCallCount();
@@ -285,7 +280,6 @@ public class TestAuth extends UnitTestCommon
     public void
     testBasicDirect() throws Exception
     {
-        if(IGNORE) return;
         System.err.println("*** Testing: Http Basic Password Authorization Using direct credentials");
         HTTPSession.debugHeaders(true);
 
@@ -295,7 +289,7 @@ public class TestAuth extends UnitTestCommon
             // Test local credentials provider
             try (HTTPSession session = HTTPFactory.newSession(data.url);
                  HTTPMethod method = HTTPFactory.Get(session, data.url)) {
-                session.setCredentials(HTTPAuthPolicy.BASIC, cred);
+                session.setCredentials(HTTPAuthSchemes.BASIC, cred);
                 int status = method.execute();
                 System.err.printf("\tlocal provider: status code = %d\n", status);
                 System.err.flush();
@@ -305,7 +299,7 @@ public class TestAuth extends UnitTestCommon
             if(pass) {
                 // Test global credentials provider
                 AuthScope scope
-                        = HTTPAuthScope.urlToScope(data.url, HTTPAuthPolicy.BASIC, null);
+                        = HTTPAuthScope.urlToScope(data.url, HTTPAuthSchemes.BASIC, null);
                 HTTPSession.setGlobalCredentials(scope, cred);
                 try (HTTPSession session = HTTPFactory.newSession(data.url);
                      HTTPMethod method = HTTPFactory.Get(session, data.url)) {
@@ -326,8 +320,6 @@ public class TestAuth extends UnitTestCommon
     public void
     testCache() throws Exception
     {
-        if(IGNORE) return;
-
         System.err.println("*** Testing: Cache Invalidation");
         // Clear the cache and the global authstore
         HTTPAuthStore.getDefault().clear();
@@ -350,7 +342,7 @@ public class TestAuth extends UnitTestCommon
                 List<HTTPCachingProvider.Triple> removed = HTTPCachingProvider.getTestList();
                 if(removed.size() == 1) {
                     HTTPCachingProvider.Triple triple = removed.get(0);
-                    pass = (triple.scope.getScheme().equals(HTTPAuthPolicy.BASIC.toUpperCase())
+                    pass = (triple.scope.getScheme().equals(HTTPAuthSchemes.BASIC.toUpperCase())
                             && triple.creds instanceof UsernamePasswordCredentials);
                 } else
                     pass = false;
@@ -371,12 +363,10 @@ public class TestAuth extends UnitTestCommon
         }
     }
 
-    @Ignore
     @Test
     public void
     testDigest() throws Exception
     {
-        if(IGNORE) return; //ignore
         System.err.println("*** Testing: Digest Policy");
         // Clear the cache and the global authstore
         HTTPAuthStore.getDefault().clear();
@@ -388,7 +378,7 @@ public class TestAuth extends UnitTestCommon
             System.err.println("*** URL: " + data.url);
             try (HTTPSession session = HTTPFactory.newSession(data.url);
                  HTTPMethod method = HTTPFactory.Get(session,data.url)) {
-                session.setCredentials(HTTPAuthPolicy.BASIC, cred);
+                session.setCredentials(HTTPAuthSchemes.BASIC, cred);
                 int status = method.execute();
                 System.err.printf("status code = %d\n", status);
                 System.err.flush();
@@ -406,13 +396,13 @@ public class TestAuth extends UnitTestCommon
         System.err.println("*** Testing: Http Basic Password Authorization with redirect");
         HTTPSession.debugHeaders(true);
 
-        for(AuthDataBasic data : redirecttests) {
+        for(AuthDataBasic data : basictests) {
             Credentials cred = new UsernamePasswordCredentials(data.user, data.password);
             System.err.println("*** URL: " + data.url);
             // Test local credentials provider
             try (HTTPSession session = HTTPFactory.newSession(data.url);
                  HTTPMethod method = HTTPFactory.Get(session, data.url)) {
-                session.setCredentials(HTTPAuthPolicy.BASIC, cred);
+                session.setCredentials(HTTPAuthSchemes.BASIC, cred);
                 int status = method.execute();
                 System.err.printf("\tlocal provider: status code = %d\n", status);
                 switch (status) {
@@ -430,7 +420,7 @@ public class TestAuth extends UnitTestCommon
             if(pass) {
                 // Test global credentials provider
                 AuthScope scope
-                        = HTTPAuthScope.urlToScope(data.url, HTTPAuthPolicy.BASIC, null);
+                        = HTTPAuthScope.urlToScope(data.url, HTTPAuthSchemes.BASIC, null);
                 HTTPSession.setGlobalCredentials(scope, cred);
                 try (HTTPSession session = HTTPFactory.newSession(data.url);
                      HTTPMethod method = HTTPFactory.Get(session, data.url)) {
@@ -457,7 +447,6 @@ public class TestAuth extends UnitTestCommon
     }
 
     // This test is turned off until such time as the server can handle it.
-    @Ignore
     @Test
     public void
     testKeystore() throws Exception
@@ -486,7 +475,7 @@ public class TestAuth extends UnitTestCommon
 
         CredentialsProvider provider = new HTTPSSLProvider(keystore, CLIENTPWD);
         AuthScope scope
-                = HTTPAuthScope.urlToScope(url, HTTPAuthPolicy.SSL, null);
+                = HTTPAuthScope.urlToScope(url, HTTPAuthSchemes.SSL, null);
         HTTPSession.setGlobalCredentialsProvider(scope, provider);
 
         try (HTTPSession session = HTTPFactory.newSession(url);
@@ -517,23 +506,23 @@ public class TestAuth extends UnitTestCommon
         scope = new AuthScope(
                 "http://ceda.ac.uk/dap/neodc/casix/seawifs_plankton/data/monthly/PSC_monthly_1998.nc.dds",
                 AuthScope.ANY_PORT, AuthScope.ANY_REALM,
-                HTTPAuthPolicy.BASIC);
+                HTTPAuthSchemes.BASIC);
         // Add some entries to an HTTPAuthStore
         HTTPAuthStore store = new HTTPAuthStore();
 
-        scope = HTTPAuthScope.urlToScope(HTTPAuthPolicy.BASIC,
+        scope = HTTPAuthScope.urlToScope(
                 "http://ceda.ac.uk/dap/neodc/casix/seawifs_plankton/data/monthly/PSC_monthly_1998.nc.dds",
-                null);
+            HTTPAuthSchemes.BASIC,null);
         store.insert(HTTPAuthScope.ANY_PRINCIPAL, scope, credp1);
 
-        scope = HTTPAuthScope.urlToScope(HTTPAuthPolicy.SSL,
-                "http://ceda.ac.uk",
+        scope = HTTPAuthScope.urlToScope(
+                "http://ceda.ac.uk", HTTPAuthSchemes.SSL,
                 null);
 
         store.insert(HTTPAuthScope.ANY_PRINCIPAL, scope, credp2);
 
-        scope = HTTPAuthScope.urlToScope(HTTPAuthPolicy.BASIC,
-                "http://ceda.ac.uk",
+        scope = HTTPAuthScope.urlToScope(
+                "http://ceda.ac.uk",  HTTPAuthSchemes.BASIC,
                 null);
         store.insert(HTTPAuthScope.ANY_PRINCIPAL, scope, credp3);
 
@@ -577,7 +566,6 @@ public class TestAuth extends UnitTestCommon
 
     // This test actually is does nothing because I have no way to test it
     // since it requires a firwall proxy that requires username+pwd
-    @Ignore
     @Test
     public void
     testFirewall() throws Exception

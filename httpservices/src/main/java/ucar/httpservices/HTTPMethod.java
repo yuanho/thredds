@@ -701,7 +701,7 @@ public class HTTPMethod implements AutoCloseable
         if(surl == null)
             scope = session.getRealm();
         else
-            scope = HTTPAuthScope.urlToScope(HTTPAuthPolicy.BASIC, surl, principalp);
+            scope = HTTPAuthScope.urlToScope(surl, HTTPAuthSchemes.BASIC, principalp);
 
         // Provide a credentials (provider) to enact the process
         // We use the a caching instance so we can intercept getCredentials

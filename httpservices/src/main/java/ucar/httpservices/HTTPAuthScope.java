@@ -61,16 +61,22 @@ abstract public class HTTPAuthScope
     //////////////////////////////////////////////////
     // Constants
 
+    // imports from AuthScope
+    public static final String ANY_HOST = AuthScope.ANY_HOST;
+    public static final int ANY_PORT = AuthScope.ANY_PORT;
+    public static final String ANY_REALM = AuthScope.ANY_REALM;
+    public static final String ANY_SCHEME = AuthScope.ANY_SCHEME;
+
+    public static final AuthScope ANY = AuthScope.ANY;
+
+    // Extension
     public static final String ANY_PRINCIPAL = null;
 
-    public static final AuthScope ANY
-            = new AuthScope(ANY_HOST, ANY_PORT, ANY_REALM, ANY_SCHEME);
-
-    //////////////////////////////////////////////////	
+    //////////////////////////////////////////////////
     // URL Decomposition
 
     static URI decompose(String suri)
-            throws HTTPException
+        throws HTTPException
     {
         try {
             URI uri = new URI(suri);
@@ -97,16 +103,16 @@ abstract public class HTTPAuthScope
         if(a1 == null || a2 == null)
             throw new NullPointerException();
         if(a1.getScheme() != ANY_SCHEME && a2.getScheme() != ANY_SCHEME
-                && !a1.getScheme().equals(a2.getScheme()))
+            && !a1.getScheme().equals(a2.getScheme()))
             return false;
         if(a1.getHost() != ANY_HOST && a2.getHost() != ANY_HOST
-                && !a1.getHost().equals(a2.getHost()))
+            && !a1.getHost().equals(a2.getHost()))
             return false;
         if(a1.getPort() != ANY_PORT && a2.getPort() != ANY_PORT
-                && a1.getPort() != a2.getPort())
+            && a1.getPort() != a2.getPort())
             return false;
         if(a1.getRealm() != ANY_REALM && a2.getRealm() != ANY_REALM
-                && !a1.getRealm().equals(a2.getRealm()))
+            && !a1.getRealm().equals(a2.getRealm()))
             return false;
         return true;
     }
@@ -145,23 +151,28 @@ abstract public class HTTPAuthScope
      * Create an AuthScope from a URL; pull out any principal
      *
      * @param surl       to convert
+     * @param authscheme
      * @param principalp to store principal from url
      * @returns an AuthScope instance
      */
 
     static public AuthScope
-    urlToScope(String authscheme, String surl, String[] principalp)
-            throws HTTPException
+    urlToScope(String surl, String authscheme, String[] principalp)
+        throws HTTPException
     {
+        if(authscheme == ANY_SCHEME)
+            authscheme = HTTPAuthSchemes.DEFAULT_SCHEME;
         try {
             URI uri = HTTPAuthScope.decompose(surl);
             AuthScope scope = new AuthScope(uri.getHost(),
-                    uri.getPort(),
-                    HTTPUtil.makerealm(uri.toURL()),
-                    authscheme);
+                uri.getPort(),
+                HTTPUtil.makerealm(uri.toURL()),
+                authscheme);
             if(principalp != null)
                 principalp[0] = uri.getUserInfo();
             return scope;
+        } catch (IllegalArgumentException e) {
+            return null;
         } catch (MalformedURLException mue) {
             throw new HTTPException(mue);
         }
@@ -169,18 +180,22 @@ abstract public class HTTPAuthScope
 
     static public AuthScope
     urlToScope(String surl)
-            throws HTTPException
+        throws HTTPException
     {
-        return urlToScope(ANY_SCHEME, surl, null);
+        return urlToScope(surl, ANY_SCHEME, null);
     }
 
     static public URL
     scopeToURL(AuthScope scope)
-            throws HTTPException
+        throws HTTPException
     {
         try {
             String scheme = scope.getScheme();
-            if(scheme == null || scheme.length() == 0)
+            if(scheme == ANY_SCHEME)
+                scheme = "http";
+            else if(scheme.equals(HTTPAuthSchemes.SSL))
+                scheme = "https";
+            else
                 scheme = "http";
             URL url = new URL(scheme, scope.getHost(), scope.getPort(), "");
             return url;
@@ -199,7 +214,7 @@ abstract public class HTTPAuthScope
     }
 
     static public void serializeScope(AuthScope scope, ObjectOutputStream oos)
-            throws IOException
+        throws IOException
     {
         oos.writeObject(scope.getHost());
         oos.writeInt(scope.getPort());
@@ -208,7 +223,7 @@ abstract public class HTTPAuthScope
     }
 
     static public AuthScope deserializeScope(ObjectInputStream oos)
-            throws IOException, ClassNotFoundException
+        throws IOException, ClassNotFoundException
     {
         String host = (String) oos.readObject();
         int port = oos.readInt();
