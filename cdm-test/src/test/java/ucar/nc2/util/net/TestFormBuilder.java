@@ -58,7 +58,7 @@ public class TestFormBuilder extends UnitTestCommon
     //////////////////////////////////////////////////
     // Constants
 
-    static final boolean DEBUG = true;
+    static final boolean DEBUG = false;
 
     static protected final String TESTURL = "http://echo.httpkit.com";
 
@@ -452,6 +452,3 @@ public class TestFormBuilder extends UnitTestCommon
                     + "  \"uri\" : \"/\"\n"
                     + "}\n";
 }
-
-
-
