@@ -49,13 +49,11 @@ import static org.apache.http.auth.AuthScope.*;
 
 
 /**
- * The standard AuthScope does not provide sufficiently
- * fine grain authorization. In particular, we would
- * to support principals and datasets.
+ * Provide Auth related utilities
  */
 
 @org.apache.http.annotation.Immutable
-abstract public class HTTPAuthScope
+abstract public class HTTPAuthUtil
 {
 
     //////////////////////////////////////////////////
@@ -69,8 +67,6 @@ abstract public class HTTPAuthScope
 
     public static final AuthScope ANY = AuthScope.ANY;
 
-    // Extension
-    public static final String ANY_PRINCIPAL = null;
 
     //////////////////////////////////////////////////
     // URL Decomposition
@@ -82,7 +78,61 @@ abstract public class HTTPAuthScope
             URI uri = new URI(suri);
             return uri;
         } catch (URISyntaxException use) {
-            throw new HTTPException("HTTPAuthScope: illegal url: " + suri);
+            throw new HTTPException("HTTPAuthUtil: illegal url: " + suri);
+        }
+    }
+
+    /**
+     * Create an AuthScope from a URL; pull out any principal
+     *
+     * @param surl       to convert
+     * @param authscheme
+     * @returns an AuthScope instance
+     */
+
+    static public AuthScope
+    urlToScope(String surl, String authscheme)
+        throws HTTPException
+    {
+        if(surl == null)
+        throw new HTTPException("Null argument");
+        try {
+            URI uri = HTTPAuthUtil.decompose(surl);
+            AuthScope scope = new AuthScope(uri.getHost(),
+                uri.getPort(),
+                HTTPAuthUtil.makerealm(uri.toURL()),
+                authscheme);
+            return scope;
+        } catch (IllegalArgumentException e) {
+            return null;
+        } catch (MalformedURLException mue) {
+            throw new HTTPException(mue);
+        }
+    }
+
+    static public AuthScope
+    urlToScope(String surl)
+        throws HTTPException
+    {
+        return urlToScope(surl, ANY_SCHEME);
+    }
+
+    static public URL
+    scopeToURL(AuthScope scope)
+        throws HTTPException
+    {
+        try {
+            String scheme = scope.getScheme();
+            if(scheme == ANY_SCHEME)
+                scheme = "http";
+            else if(scheme.equals(HTTPAuthSchemes.SSL))
+                scheme = "https";
+            else
+                scheme = "http";
+            URL url = new URL(scheme, scope.getHost(), scope.getPort(), "");
+            return url;
+        } catch (MalformedURLException mue) {
+            throw new HTTPException(mue);
         }
     }
 
@@ -117,7 +167,7 @@ abstract public class HTTPAuthScope
         return true;
     }
 
-    public static boolean identical(AuthScope a1, AuthScope a2)
+    public static boolean equals(AuthScope a1, AuthScope a2)
     {
         if(a2 == null ^ a1 == null)
             return false;
@@ -126,16 +176,45 @@ abstract public class HTTPAuthScope
         // So it turns out that AuthScope#equals does not
         // test port values correctly, so we need to fix here.
         if(true) {
-            boolean b1 = LangUtils.equals(a1.getHost(), a2.getHost());
+            boolean b1 = HTTPUtil.equals(a1.getHost(), a2.getHost());
             int aport = a2.getPort();
             boolean b2 = (a1.getPort() == aport || a1.getPort() == ANY_PORT || aport == ANY_PORT);
-            boolean b3 = LangUtils.equals(a1.getRealm(), a2.getRealm());
-            boolean b4 = LangUtils.equals(a1.getScheme(), a2.getScheme());
-            if(!(b1 && b2 && b3 && b4))
+            // Also, we ignore the realms
+            // boolean b3 = HTTPUtil.equals(a1.getRealm(), a2.getRealm());
+            boolean b4 = HTTPUtil.equals(a1.getScheme(), a2.getScheme());
+            if(!(b1 && b2 && b4))
                 return false;
         } else if(!a1.equals(a2))
             return false;
         return true;
+    }
+
+    static public AuthScope
+    fixScopeRealm(AuthScope scope)
+    {
+        String realm = makerealm(scope);
+        return new AuthScope(scope.getHost(), scope.getPort(), realm,
+                scope.getScheme());
+    }
+
+
+    static public String makerealm(URL url)
+    {
+        return makerealm(url.getHost(), url.getPort());
+    }
+
+    static public String makerealm(AuthScope scope)
+    {
+        return makerealm(scope.getHost(), scope.getPort());
+    }
+
+    static public String makerealm(String host, int port)
+    {
+        if(host == null) host = ANY_HOST;
+        if(host == ANY_HOST)
+            return ANY_REALM;
+        String sport = (port <= 0 || port == ANY_PORT) ? "" : String.format("%d", port);
+        return host + sport;
     }
 
     /**
@@ -145,63 +224,6 @@ abstract public class HTTPAuthScope
     static boolean subsumes(AuthScope as, AuthScope has)
     {
         return equivalent(as, has);
-    }
-
-    /**
-     * Create an AuthScope from a URL; pull out any principal
-     *
-     * @param surl       to convert
-     * @param authscheme
-     * @param principalp to store principal from url
-     * @returns an AuthScope instance
-     */
-
-    static public AuthScope
-    urlToScope(String surl, String authscheme, String[] principalp)
-        throws HTTPException
-    {
-        if(authscheme == ANY_SCHEME)
-            authscheme = HTTPAuthSchemes.DEFAULT_SCHEME;
-        try {
-            URI uri = HTTPAuthScope.decompose(surl);
-            AuthScope scope = new AuthScope(uri.getHost(),
-                uri.getPort(),
-                HTTPUtil.makerealm(uri.toURL()),
-                authscheme);
-            if(principalp != null)
-                principalp[0] = uri.getUserInfo();
-            return scope;
-        } catch (IllegalArgumentException e) {
-            return null;
-        } catch (MalformedURLException mue) {
-            throw new HTTPException(mue);
-        }
-    }
-
-    static public AuthScope
-    urlToScope(String surl)
-        throws HTTPException
-    {
-        return urlToScope(surl, ANY_SCHEME, null);
-    }
-
-    static public URL
-    scopeToURL(AuthScope scope)
-        throws HTTPException
-    {
-        try {
-            String scheme = scope.getScheme();
-            if(scheme == ANY_SCHEME)
-                scheme = "http";
-            else if(scheme.equals(HTTPAuthSchemes.SSL))
-                scheme = "https";
-            else
-                scheme = "http";
-            URL url = new URL(scheme, scope.getHost(), scope.getPort(), "");
-            return url;
-        } catch (MalformedURLException mue) {
-            throw new HTTPException(mue);
-        }
     }
 
 
