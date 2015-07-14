@@ -66,8 +66,6 @@ abstract public class HTTPAuthUtil
     public static final String ANY_SCHEME = AuthScope.ANY_SCHEME;
 
     public static final AuthScope ANY = AuthScope.ANY;
-
-
     //////////////////////////////////////////////////
     // URL Decomposition
 

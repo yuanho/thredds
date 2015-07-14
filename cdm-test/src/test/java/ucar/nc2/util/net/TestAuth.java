@@ -263,7 +263,6 @@ public class TestAuth extends UnitTestCommon
             this.password = pwd;
         }
     }
-
     protected AuthDataBasic[] basictests = {
             new AuthDataBasic("http://" + TestDir.threddsTestServer + "/thredds/dodsC/restrict/testData.nc.dds",
                     "tiggeUser", "tigge"),
@@ -278,6 +277,7 @@ public class TestAuth extends UnitTestCommon
         for(AuthDataBasic data : basictests) {
             System.out.println("Test global credentials provider");
             System.out.println("*** URL: " + data.url);
+
             this.provider.setPWD(data.user, data.password);
 
             // Test global credentials provider
@@ -339,6 +339,7 @@ public class TestAuth extends UnitTestCommon
             try (HTTPSession session = HTTPFactory.newSession(data.url)) {
                 session.setCredentials(data.url, creds);
                 this.result = invoke(session, data.url);
+
             }
             pass &= (this.result.status == 200 || this.result.status == 404); // non-existence is ok
             assertTrue("no content", this.result.contents.length > 0);
