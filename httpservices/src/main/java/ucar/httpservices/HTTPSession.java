@@ -1319,6 +1319,51 @@ public class HTTPSession implements AutoCloseable
     }
 
     //////////////////////////////////////////////////
+    // Tracing
+
+    static public void setTracing(boolean tf)
+    {
+
+       }
+        return null;
+    }
+
+    static public HTTPUtil.InterceptResponse
+    debugResponseInterceptor()
+    {
+        if(dbgrsp != null)
+            for(HttpResponseInterceptor hri : dbgrsp) {
+                if(hri instanceof HTTPUtil.InterceptResponse)
+                    return ((HTTPUtil.InterceptResponse) hri);
+            }
+        return null;
+    }
+
+    //////////////////////////////////////////////////
+    // Tracing
+
+    static public void setTracing(boolean tf)
+    {
+	System.setProperty("org.apache.commons.logging.Log",
+                           "org.apache.commons.logging.impl.SimpleLog");
+        System.setProperty("org.apache.commons.logging.simplelog.showdatetime",
+                           "true");
+	if(tf) {
+            System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http.wire", 
+                               "DEBUG");
+            System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http.impl.conn",
+                               "DEBUG");
+            System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http.impl.client",
+                               "DEBUG");
+            System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http.client",
+                               "DEBUG");
+            System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http",
+                               "DEBUG");
+	} else {//false
+        }
+    }
+
+    //////////////////////////////////////////////////
     // KeyStore Management
 
     // Provide for backward compatibility

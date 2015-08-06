@@ -70,7 +70,7 @@ public class HTTPFormBuilder
     //////////////////////////////////////////////////
     // Constants
 
-    public static final Charset DFALTCHARSET = HTTPUtil.UTF8;
+    public static final Charset DFALTCHARSET = Escape.UTF8;
 
 
     //////////////////////////////////////////////////

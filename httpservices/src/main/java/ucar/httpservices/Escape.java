@@ -46,7 +46,7 @@ import java.util.regex.Pattern;
 
 public class Escape
 {
-    public static final Charset utf8Charset = Charset.forName("UTF-8");
+    public static final Charset UTF8 = Charset.forName("UTF-8");
 
     // Sets of ascii characters of interest
 
@@ -81,8 +81,8 @@ public class Escape
             StringBuffer out = new StringBuffer();
             int i;
             if (in == null) return null;
-            byte[] utf8 = in.getBytes(utf8Charset);
-            byte[] allow8 = allowable.getBytes(utf8Charset);
+            byte[] utf8 = in.getBytes(UTF8);
+            byte[] allow8 = allowable.getBytes(UTF8);
             for(byte b: utf8) {
                 if(b == blank && spaceplus) {
                    out.append('+');
@@ -136,7 +136,7 @@ public class Escape
         try {
             if (in == null) return null;
 
-            byte[] utf8 = in.getBytes(utf8Charset);
+            byte[] utf8 = in.getBytes(UTF8);
             byte escape8 = (byte)escape;
             byte[] out = new byte[utf8.length]; // Should be max we need
 
@@ -154,7 +154,7 @@ public class Escape
                 }
                 out[index8++] = b;
             }
-            return new String(out,0,index8, utf8Charset);
+            return new String(out,0,index8, UTF8);
         } catch(Exception e) {
             return in;
         }
