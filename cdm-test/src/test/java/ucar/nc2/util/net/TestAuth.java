@@ -37,10 +37,9 @@ import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.Credentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
-import org.junit.Assume;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.Assert;
 import ucar.httpservices.*;
 import ucar.nc2.util.UnitTestCommon;
 import ucar.unidata.test.util.ExternalServer;
@@ -50,6 +49,9 @@ import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.List;
+
+import static org.junit.Assert.*;
+
 
 public class TestAuth extends UnitTestCommon
 {
@@ -213,16 +215,6 @@ public class TestAuth extends UnitTestCommon
         //HTTPSession.debugHeaders(true);
     }
 
-    public TestAuth(String name)
-    {
-        this(name, null);
-    }
-
-    public TestAuth()
-    {
-        this("TestAuth", null);
-    }
-
     @Before
     public void setUp()
     {
@@ -233,7 +225,6 @@ public class TestAuth extends UnitTestCommon
     public void
     testSSH() throws Exception
     {
-        boolean pass = true;
         String[] sshurls = {
                 "https://" + TestDir.dap2TestServer + "/dts/b31.dds"
         };
@@ -244,8 +235,7 @@ public class TestAuth extends UnitTestCommon
             try (HTTPMethod method = HTTPFactory.Get(url)) {
                 int status = method.execute();
                 System.out.printf("\tstatus code = %d\n", status);
-                pass = (status == 200);
-                Assert.assertTrue("testSSH", pass);
+                assertTrue("Status != 200", (status == 200));
             }
         }
     }
@@ -275,7 +265,6 @@ public class TestAuth extends UnitTestCommon
     testBasic() throws Exception
     {
         System.out.println("*** Testing: Http Basic Password Authorization");
-        boolean pass = true;
         for(AuthDataBasic data : basictests) {
             System.out.println("Test global credentials provider");
             System.out.println("*** URL: " + data.url);
@@ -288,7 +277,7 @@ public class TestAuth extends UnitTestCommon
             try (HTTPSession session = HTTPFactory.newSession(data.url)) {
                 this.result = invoke(session, data.url);
             }
-            pass &= (this.result.status == 200 || this.result.status == 404); // non-existence is ok
+            assertTrue("Status :" + this.result.status,this.result.status == 200 || this.result.status == 404); // non-existence is ok
             assertTrue("Credentials provider called: " + this.result.count, this.result.count == 1);
             assertTrue("no content", this.result.contents.length > 0);
         }
@@ -303,12 +292,11 @@ public class TestAuth extends UnitTestCommon
                 session.setCredentialsProvider(data.url, this.provider);
                 this.result = invoke(session, data.url);
             }
-            pass &= (this.result.status == 200 || this.result.status == 404); // non-existence is ok
+            assertTrue("Status :" + this.result.status,this.result.status == 200 || this.result.status == 404); // non-existence is ok
             assertTrue("Credentials provider called: " + this.result.count, this.result.count == 1);
             assertTrue("no content", this.result.contents.length > 0);
 
         }
-        assertTrue("testBasic", pass);
     }
 
     @Test
@@ -316,7 +304,6 @@ public class TestAuth extends UnitTestCommon
     testBasicDirect() throws Exception
     {
         System.out.println("*** Testing: Http Basic Password Authorization Using Constant Credentials");
-        boolean pass = true;
         for(AuthDataBasic data : basictests) {
             Credentials creds = new UsernamePasswordCredentials(data.user, data.password);
             System.out.println("Test global credentials");
@@ -328,7 +315,7 @@ public class TestAuth extends UnitTestCommon
             try (HTTPSession session = HTTPFactory.newSession(data.url)) {
                 this.result = invoke(session, data.url);
             }
-            pass &= (this.result.status == 200 || this.result.status == 404); // non-existence is ok
+            assertTrue("Status :" + this.result.status,this.result.status == 200 || this.result.status == 404); // non-existence is ok
             assertTrue("no content", this.result.contents.length > 0);
         }
 
@@ -343,10 +330,9 @@ public class TestAuth extends UnitTestCommon
                 this.result = invoke(session, data.url);
 
             }
-            pass &= (this.result.status == 200 || this.result.status == 404); // non-existence is ok
-            assertTrue("no content", this.result.contents.length > 0);
+            assertTrue("Status :" + this.result.status,this.result.status == 200 || this.result.status == 404); // non-existence is ok
+            assertTrue("No content",this.result.contents.length > 0);
         }
-        assertTrue("testBasic", pass);
     }
 
 
@@ -355,7 +341,6 @@ public class TestAuth extends UnitTestCommon
     testCache() throws Exception
     {
         System.err.println("*** Testing: Cache Invalidation");
-        boolean pass = true;
         for(AuthDataBasic data : basictests) {
             System.out.println("*** URL: " + data.url);
 
@@ -367,17 +352,15 @@ public class TestAuth extends UnitTestCommon
                 session.setCredentialsProvider(data.url, this.provider);
                 this.result = invoke(session, data.url);
             }
-            pass &= (this.result.status == 401); // bad password should fail
+            assertTrue("Status :" + this.result.status,this.result.status == 401);// bad password should fail
             assertTrue("Credentials provider called: " + this.result.count, this.result.count == 1);
             // Look at the invalidation list
             List<HTTPCachingProvider.Auth> removed = HTTPCachingProvider.getTestList();
-            if(removed.size() == 1) {
+            assertTrue("|items matched| != 1",removed.size() != 1);
                 HTTPCachingProvider.Auth triple = removed.get(0);
-                pass &= (triple.scope.getScheme().equals(HTTPAuthSchemes.BASIC.toUpperCase())
-                        && triple.creds instanceof UsernamePasswordCredentials);
-            } else
-                pass &= false;
-            if(pass) {
+                assertTrue("Scheme or creds mismatch",
+                (triple.scope.getScheme().equals(HTTPAuthSchemes.BASIC.toUpperCase())
+                        && triple.creds instanceof UsernamePasswordCredentials));
                 // retry with correct password
                 this.provider.setPWD(data.user, data.password);
                 try (HTTPSession session = HTTPFactory.newSession(data.url)) {
@@ -385,9 +368,7 @@ public class TestAuth extends UnitTestCommon
                     this.result = invoke(session, data.url);
                 }
                 assertTrue(result.status == 200);
-            }
         }
-        assertTrue("testBasic", pass);
     }
 
 /*
@@ -395,7 +376,6 @@ public class TestAuth extends UnitTestCommon
     public void
     testDigest() throws Exception
     {
-        boolean pass = true;
         System.err.println("*** Testing: Digest Policy");
         // Clear the cache and the global authstore
         HTTPCachingProvider.clearCache();
@@ -420,7 +400,6 @@ public class TestAuth extends UnitTestCommon
     testRedirect() throws Exception  // not used except for special testing
     {
         if(IGNORE) return;
-        boolean pass = true;
         System.err.println("*** Testing: Http Basic Password Authorization with redirect");
         HTTPSession.debugHeaders(true);
 
@@ -480,7 +459,6 @@ public class TestAuth extends UnitTestCommon
     testKeystore() throws Exception
     {
         if(IGNORE) return; //ignore
-        boolean pass = true;
         System.err.println("*** Testing: Client-side Key based Authorization");
 
         String server;
@@ -526,7 +504,6 @@ public class TestAuth extends UnitTestCommon
     testFirewall() throws Exception
     {
         if(IGNORE) return; //ignore
-        boolean pass = true;
         String user = null;
         String pwd = null;
         String host = null;

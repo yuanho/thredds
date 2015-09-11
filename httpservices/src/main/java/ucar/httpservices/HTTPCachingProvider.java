@@ -233,7 +233,7 @@ public class HTTPCachingProvider implements CredentialsProvider
     {
         Credentials creds = null;
         for(Auth p : HTTPCachingProvider.cache) {
-            if(HTTPAuthUtil.equals(p.scope, scope)) {
+            if(HTTPAuthUtil.authscopeEquals(p.scope, scope)) {
                 creds = p.creds;
                 break;
             }
@@ -253,7 +253,7 @@ public class HTTPCachingProvider implements CredentialsProvider
         // walk backward because we are removing entries
         for(int i = HTTPCachingProvider.cache.size() - 1; i >= 0; i--) {
             Auth p = HTTPCachingProvider.cache.get(i);
-            if(HTTPAuthUtil.equals(scope, p.scope)) {
+            if(HTTPAuthUtil.authscopeEquals(scope, p.scope)) {
                 if(TESTING) {
                     System.err.println("invalidating: " + p);
                     if(testlist == null)

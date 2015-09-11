@@ -135,7 +135,7 @@ public class HTTPAuthStore implements Serializable
         List<Scope> scopes = getScopes(scheme);
         CredentialsProvider old = null;
         for(Scope sc : scopes) {
-            if(HTTPAuthUtil.equals(sc.scope,scope)) {
+            if(HTTPAuthUtil.authscopeEquals(sc.scope,scope)) {
                 old = sc.provider;
                 sc.provider = provider;
                 break;
@@ -204,7 +204,7 @@ public class HTTPAuthStore implements Serializable
             throw new IllegalArgumentException("null value");
         List<Scope> scopes = getScopes(scope.getScheme());
         for(Scope sc: scopes) {
-            if(HTTPAuthUtil.equals(sc.scope,scope))
+            if(HTTPAuthUtil.authscopeEquals(sc.scope,scope))
                 return sc.provider;
         }
 	// Try parent,if any

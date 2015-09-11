@@ -223,8 +223,7 @@ abstract public class HTTPUtil
     /**
      * @return {@code true} if the objects are equal or both null
      */
-    public static boolean equals(final Object obj1, final Object obj2)
-    {
+    public static boolean nullEquals(final Object obj1, final Object obj2) {
         return obj1 == null ? obj2 == null : obj1.equals(obj2);
     }
 

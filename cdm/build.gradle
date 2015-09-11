@@ -29,7 +29,7 @@ dependencies {
 
 test {
     // Causes JUnit to throw an exception: "No tests found in ucar.nc2.util.UnitTestCommon"
-    exclude 'ucar/nc2/util/UnitTestCommon.class'
+//    exclude 'ucar/nc2/util/UnitTestCommon.class'
 }
 
 javadoc {

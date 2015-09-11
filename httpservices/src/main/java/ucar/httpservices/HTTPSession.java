@@ -427,6 +427,15 @@ public class HTTPSession implements AutoCloseable
         authglobal.insert(scope, provider);
     }
 
+    static public void
+    setGlobalCredentialsProvider(CredentialsProvider provider)
+            throws HTTPException
+    {
+        if(provider == null)
+            throw new IllegalArgumentException("null argument");
+        authglobal.insert(AuthScope.ANY,provider);
+    }
+
     /**
      * It is convenient to be able to directly set the Credentials
      * (not the provider) when those credentials are fixed.

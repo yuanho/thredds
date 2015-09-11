@@ -165,7 +165,7 @@ abstract public class HTTPAuthUtil
         return true;
     }
 
-    public static boolean equals(AuthScope a1, AuthScope a2)
+    public static boolean authscopeEquals(AuthScope a1, AuthScope a2)
     {
         if(a2 == null ^ a1 == null)
             return false;
@@ -174,13 +174,12 @@ abstract public class HTTPAuthUtil
         // So it turns out that AuthScope#equals does not
         // test port values correctly, so we need to fix here.
         if(true) {
-            boolean b1 = HTTPUtil.equals(a1.getHost(), a2.getHost());
+            boolean b1 = HTTPUtil.nullEquals(a1.getHost(), a2.getHost());
             int aport = a2.getPort();
             boolean b2 = (a1.getPort() == aport || a1.getPort() == ANY_PORT || aport == ANY_PORT);
-            // Also, we ignore the realms
-            // boolean b3 = HTTPUtil.equals(a1.getRealm(), a2.getRealm());
-            boolean b4 = HTTPUtil.equals(a1.getScheme(), a2.getScheme());
-            if(!(b1 && b2 && b4))
+            boolean b3 = HTTPUtil.nullEquals(a1.getRealm(), a2.getRealm());
+            boolean b4 = HTTPUtil.nullEquals(a1.getScheme(), a2.getScheme());
+            if(!(b1 && b2 && b3 && b4))
                 return false;
         } else if(!a1.equals(a2))
             return false;
