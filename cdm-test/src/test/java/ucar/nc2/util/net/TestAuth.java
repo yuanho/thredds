@@ -37,12 +37,14 @@ import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.Credentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
+import org.junit.Assume;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import ucar.httpservices.*;
 import ucar.nc2.util.UnitTestCommon;
+import ucar.unidata.test.util.ExternalServer;
 import ucar.unidata.test.util.TestDir;
-import ucar.unidata.test.util.ThreddsServer;
 
 import java.io.File;
 import java.io.IOException;
@@ -201,9 +203,9 @@ public class TestAuth extends UnitTestCommon
     //////////////////////////////////////////////////
     // Constructor(s)
 
-    public TestAuth(String name, String testdir)
+    public TestAuth()
     {
-        super(name);
+        super("TestAuth");
         setTitle("DAP Authorization tests");
         // Make sure temp file exist
         temppath = getThreddsroot() + "/" + MODULE + "/" + TEMPROOT;
@@ -224,7 +226,7 @@ public class TestAuth extends UnitTestCommon
     @Before
     public void setUp()
     {
-        ThreddsServer.REMOTETEST.assumeIsAvailable();
+        ExternalServer.REMOTETEST.assumeIsAvailable();
     }
 
     @Test
@@ -243,7 +245,7 @@ public class TestAuth extends UnitTestCommon
                 int status = method.execute();
                 System.out.printf("\tstatus code = %d\n", status);
                 pass = (status == 200);
-                assertTrue("testSSH", pass);
+                Assert.assertTrue("testSSH", pass);
             }
         }
     }

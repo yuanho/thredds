@@ -144,6 +144,7 @@ public class HTTPAuthStore implements Serializable
         if(old == null)
             scopes.add(new Scope(scope, provider));
         return old;
+
     }
 
     /**
