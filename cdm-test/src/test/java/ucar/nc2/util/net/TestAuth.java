@@ -39,7 +39,6 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.Assert;
 import ucar.httpservices.*;
 import ucar.nc2.util.UnitTestCommon;
 import ucar.unidata.test.util.ExternalServer;
@@ -50,7 +49,7 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertTrue;
 
 
 public class TestAuth extends UnitTestCommon
@@ -255,6 +254,7 @@ public class TestAuth extends UnitTestCommon
             this.password = pwd;
         }
     }
+
     protected AuthDataBasic[] basictests = {
             new AuthDataBasic("http://" + TestDir.threddsTestServer + "/thredds/dodsC/restrict/testData.nc.dds",
                     "tiggeUser", "tigge"),
@@ -271,13 +271,23 @@ public class TestAuth extends UnitTestCommon
 
             this.provider.setPWD(data.user, data.password);
 
-            // Test global credentials provider
+            // Test global credentials provider with no specified url
+            HTTPSession.setGlobalCredentialsProvider(this.provider);
+            HTTPCachingProvider.clearCache();
+            try (HTTPSession session = HTTPFactory.newSession(data.url)) {
+                this.result = invoke(session, data.url);
+            }
+            assertTrue("Status :" + this.result.status, this.result.status == 200 || this.result.status == 404); // non-existence is ok
+            assertTrue("Credentials provider called: " + this.result.count, this.result.count == 1);
+            assertTrue("no content", this.result.contents.length > 0);
+
+            // Test global credentials provider with a specified url
             HTTPSession.setGlobalCredentialsProvider(data.url, this.provider);
             HTTPCachingProvider.clearCache();
             try (HTTPSession session = HTTPFactory.newSession(data.url)) {
                 this.result = invoke(session, data.url);
             }
-            assertTrue("Status :" + this.result.status,this.result.status == 200 || this.result.status == 404); // non-existence is ok
+            assertTrue("Status :" + this.result.status, this.result.status == 200 || this.result.status == 404); // non-existence is ok
             assertTrue("Credentials provider called: " + this.result.count, this.result.count == 1);
             assertTrue("no content", this.result.contents.length > 0);
         }
@@ -292,7 +302,7 @@ public class TestAuth extends UnitTestCommon
                 session.setCredentialsProvider(data.url, this.provider);
                 this.result = invoke(session, data.url);
             }
-            assertTrue("Status :" + this.result.status,this.result.status == 200 || this.result.status == 404); // non-existence is ok
+            assertTrue("Status :" + this.result.status, this.result.status == 200 || this.result.status == 404); // non-existence is ok
             assertTrue("Credentials provider called: " + this.result.count, this.result.count == 1);
             assertTrue("no content", this.result.contents.length > 0);
 
@@ -315,7 +325,7 @@ public class TestAuth extends UnitTestCommon
             try (HTTPSession session = HTTPFactory.newSession(data.url)) {
                 this.result = invoke(session, data.url);
             }
-            assertTrue("Status :" + this.result.status,this.result.status == 200 || this.result.status == 404); // non-existence is ok
+            assertTrue("Status :" + this.result.status, this.result.status == 200 || this.result.status == 404); // non-existence is ok
             assertTrue("no content", this.result.contents.length > 0);
         }
 
@@ -330,8 +340,8 @@ public class TestAuth extends UnitTestCommon
                 this.result = invoke(session, data.url);
 
             }
-            assertTrue("Status :" + this.result.status,this.result.status == 200 || this.result.status == 404); // non-existence is ok
-            assertTrue("No content",this.result.contents.length > 0);
+            assertTrue("Status :" + this.result.status, this.result.status == 200 || this.result.status == 404); // non-existence is ok
+            assertTrue("No content", this.result.contents.length > 0);
         }
     }
 
@@ -352,22 +362,22 @@ public class TestAuth extends UnitTestCommon
                 session.setCredentialsProvider(data.url, this.provider);
                 this.result = invoke(session, data.url);
             }
-            assertTrue("Status :" + this.result.status,this.result.status == 401);// bad password should fail
+            assertTrue("Status :" + this.result.status, this.result.status == 401);// bad password should fail
             assertTrue("Credentials provider called: " + this.result.count, this.result.count == 1);
             // Look at the invalidation list
             List<HTTPCachingProvider.Auth> removed = HTTPCachingProvider.getTestList();
-            assertTrue("|items matched| != 1",removed.size() != 1);
-                HTTPCachingProvider.Auth triple = removed.get(0);
-                assertTrue("Scheme or creds mismatch",
-                (triple.scope.getScheme().equals(HTTPAuthSchemes.BASIC.toUpperCase())
-                        && triple.creds instanceof UsernamePasswordCredentials));
-                // retry with correct password
-                this.provider.setPWD(data.user, data.password);
-                try (HTTPSession session = HTTPFactory.newSession(data.url)) {
-                    session.setCredentialsProvider(data.url, this.provider);
-                    this.result = invoke(session, data.url);
-                }
-                assertTrue(result.status == 200);
+            assertTrue("|items matched| != 1", removed.size() != 1);
+            HTTPCachingProvider.Auth triple = removed.get(0);
+            assertTrue("Scheme or creds mismatch",
+                    (triple.scope.getScheme().equals(HTTPAuthSchemes.BASIC.toUpperCase())
+                            && triple.creds instanceof UsernamePasswordCredentials));
+            // retry with correct password
+            this.provider.setPWD(data.user, data.password);
+            try (HTTPSession session = HTTPFactory.newSession(data.url)) {
+                session.setCredentialsProvider(data.url, this.provider);
+                this.result = invoke(session, data.url);
+            }
+            assertTrue(result.status == 200);
         }
     }
 
