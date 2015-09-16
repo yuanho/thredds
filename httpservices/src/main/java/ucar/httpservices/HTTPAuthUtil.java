@@ -35,7 +35,6 @@ package ucar.httpservices;
 
 
 import org.apache.http.auth.AuthScope;
-import org.apache.http.util.LangUtils;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -44,8 +43,6 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-
-import static org.apache.http.auth.AuthScope.*;
 
 
 /**
@@ -70,7 +67,7 @@ abstract public class HTTPAuthUtil
     // URL Decomposition
 
     static URI decompose(String suri)
-        throws HTTPException
+            throws HTTPException
     {
         try {
             URI uri = new URI(suri);
@@ -85,21 +82,21 @@ abstract public class HTTPAuthUtil
      *
      * @param surl       to convert
      * @param authscheme
-     * @returns an AuthScope instance
+     * @return an AuthScope instance
      */
 
     static public AuthScope
     urlToScope(String surl, String authscheme)
-        throws HTTPException
+            throws HTTPException
     {
         if(surl == null)
-        throw new HTTPException("Null argument");
+            throw new HTTPException("Null argument");
         try {
             URI uri = HTTPAuthUtil.decompose(surl);
             AuthScope scope = new AuthScope(uri.getHost(),
-                uri.getPort(),
-                HTTPAuthUtil.makerealm(uri.toURL()),
-                authscheme);
+                    uri.getPort(),
+                    HTTPAuthUtil.makerealm(uri.toURL()),
+                    authscheme);
             return scope;
         } catch (IllegalArgumentException e) {
             return null;
@@ -110,14 +107,14 @@ abstract public class HTTPAuthUtil
 
     static public AuthScope
     urlToScope(String surl)
-        throws HTTPException
+            throws HTTPException
     {
         return urlToScope(surl, ANY_SCHEME);
     }
 
     static public URL
     scopeToURL(AuthScope scope)
-        throws HTTPException
+            throws HTTPException
     {
         try {
             String scheme = scope.getScheme();
@@ -135,36 +132,53 @@ abstract public class HTTPAuthUtil
     }
 
     //////////////////////////////////////////////////
-    // Equals and Equivalence interface
+    // Equals for AuthScope
 
     /**
      * Equivalence algorithm:
-     * if any field is ANY_XXX, then they are equivalent.
-     * Scheme, port, host must all be identical else return false
-     * If this.path is prefix of other.path
-     * or other.path is prefix of this.path
-     * or they are string equals, then return true
-     * else return false.
+     * Do a field by field comparison:
+     * 1. if any field is ANY_XXX, then the fields are equivalent.
+     * 2. if two fields are String equals (or int equals for ports),
+     *    then they are equivalent.
+     * 2. if Scheme, port, host, realm must are all be equivalent return true
+     *    else return false.
      */
-    static public boolean equivalent(AuthScope a1, AuthScope a2)
-    {
-        if(a1 == null || a2 == null)
-            throw new NullPointerException();
-        if(a1.getScheme() != ANY_SCHEME && a2.getScheme() != ANY_SCHEME
-            && !a1.getScheme().equals(a2.getScheme()))
-            return false;
-        if(a1.getHost() != ANY_HOST && a2.getHost() != ANY_HOST
-            && !a1.getHost().equals(a2.getHost()))
-            return false;
-        if(a1.getPort() != ANY_PORT && a2.getPort() != ANY_PORT
-            && a1.getPort() != a2.getPort())
-            return false;
-        if(a1.getRealm() != ANY_REALM && a2.getRealm() != ANY_REALM
-            && !a1.getRealm().equals(a2.getRealm()))
-            return false;
-        return true;
-    }
+    /**
+     static public boolean equivalent(AuthScope a1, AuthScope a2)
+     throws HTTPException
+     {
+     if(a1 == null || a2 == null)
+     throw new HTTPException("HTTPAuthutil: one or both scopes are null");
+     if(a1.getScheme() != ANY_SCHEME && a2.getScheme() != ANY_SCHEME
+     && !a1.getScheme().equals(a2.getScheme()))
+     return false;
+     if(a1.getHost() != ANY_HOST && a2.getHost() != ANY_HOST
+     && !a1.getHost().equals(a2.getHost()))
+     return false;
+     if(a1.getPort() != ANY_PORT && a2.getPort() != ANY_PORT
+     && a1.getPort() != a2.getPort())
+     return false;
+     if(a1.getRealm() != ANY_REALM && a2.getRealm() != ANY_REALM
+     && !a1.getRealm().equals(a2.getRealm()))
+     return false;
+     return true;
+     }
+     */
 
+    /**
+     * /**
+     * Equals algorithm:
+     * Do a field by field comparison:
+     * 1. if any field is ANY_XXX, then the fields are equivalent.
+     * 2. if two fields are String equals (or int equals for ports),
+     * then they are equivalent.
+     * 2. if Scheme, port, host, realm must are all be equivalent return true
+     * else return false.
+     *
+     * @param a1
+     * @param a2
+     * @return true if a1 and a2 are AuthScope Equals
+     */
     public static boolean authscopeEquals(AuthScope a1, AuthScope a2)
     {
         if(a2 == null ^ a1 == null)
@@ -175,14 +189,16 @@ abstract public class HTTPAuthUtil
         // test port values correctly, so we need to fix here.
         if(true) {
             boolean b1 = HTTPUtil.nullEquals(a1.getHost(), a2.getHost());
-            int aport = a2.getPort();
-            boolean b2 = (a1.getPort() == aport || a1.getPort() == ANY_PORT || aport == ANY_PORT);
+            int ap1 = a1.getPort();
+            int ap2 = a2.getPort();
+            boolean b2 = (ap1 == ap2 || ap1 == ANY_PORT || ap2 == ANY_PORT);
             boolean b3 = HTTPUtil.nullEquals(a1.getRealm(), a2.getRealm());
             boolean b4 = HTTPUtil.nullEquals(a1.getScheme(), a2.getScheme());
             if(!(b1 && b2 && b3 && b4))
                 return false;
-        } else if(!a1.equals(a2))
-            return false;
+        } else {
+            return (a1.equals(a2));
+        }
         return true;
     }
 
@@ -193,7 +209,6 @@ abstract public class HTTPAuthUtil
         return new AuthScope(scope.getHost(), scope.getPort(), realm,
                 scope.getScheme());
     }
-
 
     static public String makerealm(URL url)
     {
@@ -210,30 +225,14 @@ abstract public class HTTPAuthUtil
         if(host == null) host = ANY_HOST;
         if(host == ANY_HOST)
             return ANY_REALM;
-        String sport = (port <= 0 || port == ANY_PORT) ? "" : String.format("%d", port);
-        return host + sport;
-    }
-
-    /**
-     * Check is a AuthScope is "subsumed" by another AuthScope.
-     * Alias for equivalence
-     */
-    static boolean subsumes(AuthScope as, AuthScope has)
-    {
-        return equivalent(as, has);
-    }
-
-
-    static public boolean
-    wildcardMatch(String p1, String p2)
-    {
-        if((p1 == null ^ p2 == null) || (p1 == p2))
-            return true;
-        return (p1.equals(p2));
+        if(port <= 0)
+            return host;
+        else
+            return host + String.format(":%d", port);
     }
 
     static public void serializeScope(AuthScope scope, ObjectOutputStream oos)
-        throws IOException
+            throws IOException
     {
         oos.writeObject(scope.getHost());
         oos.writeInt(scope.getPort());
@@ -242,7 +241,7 @@ abstract public class HTTPAuthUtil
     }
 
     static public AuthScope deserializeScope(ObjectInputStream oos)
-        throws IOException, ClassNotFoundException
+            throws IOException, ClassNotFoundException
     {
         String host = (String) oos.readObject();
         int port = oos.readInt();

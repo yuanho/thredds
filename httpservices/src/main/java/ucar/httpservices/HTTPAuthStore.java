@@ -128,7 +128,7 @@ public class HTTPAuthStore implements Serializable
     insert(AuthScope scope, CredentialsProvider provider)
             throws HTTPException
     {
-        if(scope == null || scope.getScheme() == null || provider == null)
+        if(scope == null || provider == null)
             throw new HTTPException("HTTPAuthStore.insert: null argument");
         // Make realm from host+port
         String scheme = scope.getScheme();
