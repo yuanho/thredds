@@ -60,6 +60,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.*;
 
+import static thredds.servlet.ServletUtil.setResponseContentLength;
+
 /**
  * Provide methods to write HTML representations of a catalog, directory, or CDM dataset to an HTTP response.
  * <p/>
@@ -116,25 +118,23 @@ public class HtmlWriter {
             .append("' type='text/css' >").toString();
   }
   
-  
   public String getGoogleTrackingContent() {
       if (this.htmlConfig.getGoogleTrackingCode().isEmpty()){
           return "";
       } else {
-          return new StringBuilder()            
-	        .append("<script type='text/javascript'>")
-	        .append("var _gaq = _gaq || [];")
-	        .append("_gaq.push(['_setAccount', '")
-	        .append( this.htmlConfig.getGoogleTrackingCode() )
-	        .append("']);")
-	        .append("_gaq.push(['_trackPageview']);")
-
-	        .append("(function() {")
-	        .append("var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;")
-	        .append("ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';")
-	        .append("    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);")
-	        .append("})();")
-	        .append("</script>").toString();
+          // See https://developers.google.com/analytics/devguides/collection/analyticsjs/
+          return new StringBuilder()
+                .append("<!-- Google Analytics -->\n")
+                .append("<script>\n")
+                .append("(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){\n")
+                .append("(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),\n")
+                .append("m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)\n")
+                .append("})(window,document,'script','https://www.google-analytics.com/analytics.js','ga');\n")
+                .append('\n')
+                .append("ga('create', '").append(this.htmlConfig.getGoogleTrackingCode()).append("', 'auto');\n")
+                .append("ga('send', 'pageview');\n")
+                .append("</script>\n")
+                .append("<!-- End Google Analytics -->\n").toString();
       }
 }
 
@@ -321,7 +321,6 @@ public class HtmlWriter {
             .append( this.htmlConfig.prepareUrlStringForHtml( this.htmlConfig.getWebappDocsUrl() ) )
             .append( "'> Documentation</a>" );
     sb.append( "</h3>\n" );
-    sb.append( this.getGoogleTrackingContent() );
   }
 
   private void appendWebappFooter( StringBuilder sb )
@@ -376,8 +375,8 @@ public class HtmlWriter {
     // Get directory as HTML
     String dirHtmlString = getDirectory(path, dir);
 
-    res.setContentLength(dirHtmlString.length());
     res.setContentType(ContentType.html.getContentHeader());
+    thredds.servlet.ServletUtil.setResponseContentLength(res, dirHtmlString);
     PrintWriter writer = res.getWriter();
     writer.write(dirHtmlString);
     writer.flush();
@@ -396,6 +395,7 @@ public class HtmlWriter {
     sb.append("Directory listing for ").append(path);
     sb.append("</title>\r\n");
     sb.append(this.getTdsCatalogCssLink()).append("\n");
+    sb.append(this.getGoogleTrackingContent());
     sb.append("</head>\r\n");
     sb.append("<body>\r\n");
     sb.append("<h1>");
@@ -527,15 +527,18 @@ public class HtmlWriter {
           throws IOException {
     String catHtmlAsString = convertCatalogToHtml(cat, isLocalCatalog);
 
-    res.setContentLength(catHtmlAsString.length());
+    // Once this header is set, we know the encoding, and thus the actual
+    // number of *bytes*, not characters, to encode
     res.setContentType(ContentType.html.getContentHeader());
+    int len = setResponseContentLength(res, catHtmlAsString);
+
     if (!req.getMethod().equals("HEAD")) {
       PrintWriter writer = res.getWriter();
       writer.write(catHtmlAsString);
       writer.flush();
     }
 
-    return catHtmlAsString.length();
+    return len;
   }
 
   /**
@@ -559,6 +562,7 @@ public class HtmlWriter {
       sb.append("Catalog ").append(catname);
     sb.append("</title>\r\n");
     sb.append(this.getTdsCatalogCssLink()).append("\n");
+    sb.append(this.getGoogleTrackingContent());
     sb.append("</head>\r\n");
     sb.append("<body>");
     sb.append("<h1>");
@@ -607,7 +611,7 @@ public class HtmlWriter {
     sb.append("</body>\r\n");
     sb.append("</html>\r\n");
 
-    return (sb.toString());
+    return sb.toString();
   }
 
   private boolean doDatasets(InvCatalogImpl cat, List<InvDataset> datasets, StringBuilder sb, boolean shade, int level, boolean isLocalCatalog) {
@@ -795,7 +799,8 @@ public class HtmlWriter {
     sb.append("<head>\r\n");
     sb.append("<title> Catalog Services</title>\r\n");
     sb.append("<meta http-equiv='Content-Type' content='text/html; charset=UTF-8'>\r\n");
-    sb.append(this.getTdsPageCssLink());
+    sb.append(this.getTdsPageCssLink()).append("\n");
+    sb.append(this.getGoogleTrackingContent());
     sb.append("</head>\r\n");
     sb.append("<body>\r\n");
     this.appendOldStyleHeader(sb);
@@ -807,9 +812,7 @@ public class HtmlWriter {
 
     // optional access through Viewers
     if (isLocalCatalog)
-      viewerService.showViewers(sb, dataset, request);	
-    
-    sb.append( this.getGoogleTrackingContent() );
+      viewerService.showViewers(sb, dataset, request);
     
     sb.append( "</body>\r\n" );
     sb.append( "</html>\r\n" );
@@ -844,8 +847,8 @@ public class HtmlWriter {
           throws IOException {
     String cdmAsString = getCDM(ds);
 
-    res.setContentLength(cdmAsString.length());
     res.setContentType(ContentType.html.getContentHeader());
+    thredds.servlet.ServletUtil.setResponseContentLength(res, cdmAsString);
     PrintWriter writer = res.getWriter();
 
     writer.write(cdmAsString);
@@ -865,6 +868,7 @@ public class HtmlWriter {
     sb.append("Common Data Model");
     sb.append("</title>\r\n");
     sb.append(this.getTdsPageCssLink()).append("\n");
+    sb.append(this.getGoogleTrackingContent());
     sb.append("</head>\r\n");
     sb.append("<body>");
     sb.append("<h1>");

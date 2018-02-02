@@ -38,8 +38,8 @@ import static org.junit.Assert.*;
 
 import thredds.catalog.util.DeepCopyUtils;
 import ucar.nc2.time.CalendarDate;
-import ucar.unidata.test.util.TestDir;
-import ucar.unidata.test.util.TestFileDirUtils;
+import ucar.unidata.util.test.TestDir;
+import ucar.unidata.util.test.TestFileDirUtils;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -305,6 +305,70 @@ public class TestInvDatasetScan
 
     // Compare the resulting catalog an the expected catalog resource.
     compareCatalogToCatalogDocFile(catalog, expectedCatalogFile, debugShowCatalogs);
+  }
+
+  @Test
+  public void testSpaces() throws IOException {
+      File syntheticDatasetDir = TestFileDirUtils.createTempDirectory( "test Top Level Catalog", dsScanTmpDir );
+      createSampleEmptyDataFilesAndDirectories( syntheticDatasetDir, CalendarDate.parseISOformat( null, "2012-05-04T12:23Z").toDate().getTime() );
+      String dsScanDir = syntheticDatasetDir.getPath();
+
+      InvCatalogImpl configCat = null;
+      try
+      {
+        configCat = new InvCatalogImpl( "Test Data Catalog for NetCDF-OPeNDAP Server", "1.0.2", new URI( baseURL) );
+      }
+      catch ( URISyntaxException e )
+      {
+        assertTrue( "Bad URI syntax <" + baseURL + ">: " + e.getMessage(),
+                false);
+      }
+
+      InvService myService = new InvService( serviceName, ServiceType.DODS.toString(),
+              baseURL, null, null );
+      configCat.addService( myService );
+
+      InvDatasetScan me = new InvDatasetScan( configCat, null, dsScanName, "space path", dsScanDir, dsScanFilter,
+              false, "false", false, null, null, null );
+
+      configCat.addDataset( me);
+
+      configCat.finish();
+      String href = me.getXlinkHref();
+
+      assertFalse("HREF should not have spaces", href.contains(" "));
+  }
+
+  @Test
+  public void testDashes() throws IOException {
+    File syntheticDatasetDir = TestFileDirUtils.createTempDirectory( "test-Top-Level-Catalog", dsScanTmpDir );
+    createSampleEmptyDataFilesAndDirectories( syntheticDatasetDir, CalendarDate.parseISOformat( null, "2012-05-04T12:23Z").toDate().getTime() );
+    String dsScanDir = syntheticDatasetDir.getPath();
+
+    InvCatalogImpl configCat = null;
+    try
+    {
+      configCat = new InvCatalogImpl( "Test Data Catalog for NetCDF-OPeNDAP Server", "1.0.2", new URI( baseURL) );
+    }
+    catch ( URISyntaxException e )
+    {
+      assertTrue( "Bad URI syntax <" + baseURL + ">: " + e.getMessage(),
+              false);
+    }
+
+    InvService myService = new InvService( serviceName, ServiceType.DODS.toString(),
+            baseURL, null, null );
+    configCat.addService( myService );
+
+    InvDatasetScan me = new InvDatasetScan( configCat, null, dsScanName, "dashed-path", dsScanDir, dsScanFilter,
+            false, "false", false, null, null, null );
+
+    configCat.addDataset( me);
+
+    configCat.finish();
+    String href = me.getXlinkHref();
+
+    assertTrue("HREF should leave dashes", href.contains("-"));
   }
 
   // ToDo Get this test working

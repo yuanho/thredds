@@ -1,13 +1,14 @@
 package thredds.tds.idd;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import ucar.unidata.test.util.ExternalServer;
-
 import java.util.Arrays;
 import java.util.Collection;
+
+import org.junit.Test;
+import org.junit.experimental.categories.Category;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import ucar.unidata.util.test.category.NeedsExternalResource;
+import ucar.unidata.util.test.TestDir;
 
 /**
  * Compare variable names in  "FMRC Run" and "FMRC Raw File" datasets with matching timestamps.
@@ -16,10 +17,11 @@ import java.util.Collection;
  * @since 4.0
  */
 @RunWith(Parameterized.class)
+@Category(NeedsExternalResource.class)
 public class CompareGribVarNamesOnMotherlodeTds
 {
   private String modelId;
-  private String tdsUrl = "http://thredds.ucar.edu/thredds/";
+  private String tdsUrl = "http://"+ TestDir.threddsServer+"/thredds/";
 
   public CompareGribVarNamesOnMotherlodeTds( String modelId )
   {
@@ -32,11 +34,6 @@ public class CompareGribVarNamesOnMotherlodeTds
   {
     return Arrays.asList( IddModelDatasetsUtils.getModelIds());
     // return Arrays.asList( IddModelDatasetsUtils.getGfsModelIds());
-  }
-
-  @Before
-  public void setUp() {
-    ExternalServer.LIVE.assumeIsAvailable();
   }
 
   /**

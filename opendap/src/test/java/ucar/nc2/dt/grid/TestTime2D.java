@@ -34,9 +34,13 @@ package ucar.nc2.dt.grid;
 
 import org.junit.Assert;
 import org.junit.Test;
-import ucar.nc2.*;
+import org.junit.experimental.categories.Category;
+import ucar.nc2.Dimension;
+import ucar.nc2.NetcdfFile;
+import ucar.nc2.Variable;
 import ucar.nc2.dataset.NetcdfDataset;
-import ucar.unidata.test.util.ExternalServer;
+import ucar.unidata.util.test.category.NeedsExternalResource;
+import ucar.unidata.util.test.TestDir;
 
 /**
  * Describe
@@ -44,13 +48,12 @@ import ucar.unidata.test.util.ExternalServer;
  * @author caron
  * @since 3/11/2015
  */
+@Category(NeedsExternalResource.class)
 public class TestTime2D {
 
   @Test
   public void testTime2D() throws Exception {
-    ExternalServer.DEV.assumeIsAvailable();
-    try (NetcdfFile dataset = NetcdfDataset.openDataset("dods://thredds-dev.unidata.ucar.edu/thredds/dodsC/grib/NCEP/GFS/Pacific_40km/TwoD")) {
-
+    try (NetcdfFile dataset = NetcdfDataset.openDataset("dods://"+ TestDir.threddsTestServer+"/thredds/dodsC/grib/NCEP/GFS/Pacific_40km/TwoD")) {
       Variable v = dataset.findVariable(null, "Pressure_surface");
       assert null != v;
       assert v.getRank() == 4;

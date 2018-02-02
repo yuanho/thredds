@@ -1,8 +1,11 @@
 package dap4.test;
 
+import dap4.core.util.DapDump;
+import dap4.core.util.Escape;
 import dap4.dap4shared.ChunkInputStream;
-import dap4.core.util.*;
 import dap4.dap4shared.RequestMode;
+import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.io.ByteArrayInputStream;
@@ -10,7 +13,9 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * TestServlet test server side
@@ -106,7 +111,7 @@ public class TestServletConstraints extends DapTestCommon
 
         String makeurl(RequestMode ext)
         {
-            String url = canonjoin(FAKEURLPREFIX,canonjoin(TESTINPUTDIR,dataset));
+            String url = canonjoin(FAKEURLPREFIX, canonjoin(TESTINPUTDIR, dataset));
             if(ext != null) url += "." + ext.toString();
             if(constraint != null) {
                 url += "?" + CONSTRAINTTAG + "=";
@@ -137,21 +142,9 @@ public class TestServletConstraints extends DapTestCommon
     String wardir = null;
 
     //////////////////////////////////////////////////
-    // Constructor(s)
 
-    public TestServletConstraints()
-    {
-        this("TestServletConstraints");
-    }
-
-    public TestServletConstraints(String name)
-    {
-        this(name, null);
-    }
-
-    public TestServletConstraints(String name, String[] argv)
-    {
-        super(name);
+    @Before
+    public void setup() {
         ConstraintTest.setRoots(canonjoin(getResourceDir(), TESTINPUTDIR),
                 canonjoin(getResourceDir(), BASELINEDIR),
                 canonjoin(getResourceDir(), GENERATEDIR));
@@ -314,7 +307,7 @@ public class TestServletConstraints extends DapTestCommon
             if(!doOneTest(testcase))
                 pass = false;
         }
-        assertTrue("***Fail: TestServletConstraints", pass);
+        Assert.assertTrue("***Fail: TestServletConstraints", pass);
     }
 
     //////////////////////////////////////////////////

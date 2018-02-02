@@ -32,10 +32,29 @@
  */
 package thredds.tds.ethan;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.PrintStream;
+import java.io.PrintWriter;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.Formatter;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
-import thredds.client.catalog.*;
+import org.junit.experimental.categories.Category;
+import thredds.client.catalog.Access;
+import thredds.client.catalog.Catalog;
+import thredds.client.catalog.CatalogRef;
+import thredds.client.catalog.Dataset;
+import thredds.client.catalog.ServiceType;
 import thredds.client.catalog.builder.CatalogBuilder;
 import thredds.client.catalog.writer.CatalogCrawler;
 import thredds.client.catalog.writer.DataFactory;
@@ -54,12 +73,8 @@ import ucar.nc2.time.CalendarDateFormatter;
 import ucar.unidata.geoloc.ProjectionImpl;
 import ucar.unidata.geoloc.ogc.EPSG_OGC_CF_Helper;
 import ucar.unidata.geoloc.vertical.VerticalTransform;
-import ucar.unidata.test.util.ExternalServer;
-
-import java.io.*;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.*;
+import ucar.unidata.util.test.category.NeedsExternalResource;
+import ucar.unidata.util.test.TestDir;
 
 /**
  * _more_
@@ -67,6 +82,7 @@ import java.util.*;
  * @author edavis
  * @since Feb 15, 2007 10:10:08 PM
  */
+@Category(NeedsExternalResource.class)
 public class TestAll extends TestCase
 {
   public static Test suite()
@@ -128,7 +144,7 @@ public class TestAll extends TestCase
   private boolean showDebug;
   private boolean verbose;
 
-  private String host = "thredds.ucar.edu";
+  private String host = TestDir.threddsTestServer;
   private String[] catalogList;
 
   private String targetTdsUrl;
@@ -141,12 +157,10 @@ public class TestAll extends TestCase
   @Override
   protected void setUp()
   {
-    ExternalServer.LIVE.assumeIsAvailable();
-
     if ( null == System.getProperty( "thredds.tds.test.id"))
       System.setProperty( "thredds.tds.test.id", "crawl-newmlode-8080" );
     if ( null == System.getProperty( "thredds.tds.test.server" ) )
-      System.setProperty( "thredds.tds.test.server", "thredds.ucar.edu" );
+      System.setProperty( "thredds.tds.test.server", TestDir.threddsTestServer );
     if ( null == System.getProperty( "thredds.tds.test.level" ) )
       System.setProperty( "thredds.tds.test.level", "crawl-catalogs" );
     if ( null == System.getProperty( "thredds.tds.test.catalogs" ) )
@@ -767,7 +781,7 @@ public class TestAll extends TestCase
     for ( String curCat : catList )
     {
       gcsMsg.append( "********************\n<h4>" ).append( curCat ).append( "</h4>\n\n<pre>\n" );
-      curCat = "http://thredds.ucar.edu/thredds/catalog/" + curCat + "/files/catalog.xml";
+      curCat = "http://"+TestDir.threddsTestServer+"/thredds/catalog/" + curCat + "/files/catalog.xml";
       ByteArrayOutputStream os = new ByteArrayOutputStream();
       PrintWriter out = new PrintWriter( new OutputStreamWriter(os, CDM.utf8Charset));
       int numDs = 0;

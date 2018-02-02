@@ -33,20 +33,23 @@
 
 package thredds.motherlode;
 
-import org.junit.Test;
-import ucar.nc2.util.IO;
-import ucar.unidata.test.util.ExternalServer;
-
 import java.io.IOException;
+
+import org.junit.Test;
+import org.junit.experimental.categories.Category;
+import ucar.nc2.util.IO;
+import ucar.unidata.util.test.category.NeedsExternalResource;
+import ucar.unidata.util.test.TestDir;
 
 /**
  * Run sanity check on motherlode
  *
  * @author caron
  */
+@Category(NeedsExternalResource.class)
 public class TestMotherlodePing {
 
-  public static String server = "http://thredds-test.unidata.ucar.edu/thredds";
+  public static String server = "http://"+TestDir.threddsTestServer+"/thredds";
 
   static void ping(String url) {
     try {
@@ -59,7 +62,6 @@ public class TestMotherlodePing {
 
   @Test
   public void ping() throws Exception {
-    ExternalServer.TEST.assumeIsAvailable();
     ping("/ncss/nws/metar/ncdecoded/Metar_Station_Data_fc.cdmr/dataset.html");
     ping("/ncss/nws/metar/ncdecoded/Metar_Station_Data_fc.cdmr/dataset.xml");
     ping("/ncss/grib/NCEP/NAM/CONUS_80km/best/dataset.html");
@@ -68,6 +70,4 @@ public class TestMotherlodePing {
     ping("/wms/grib/NCEP/GFS/Global_2p5deg/best?REQUEST=GetCapabilities&VERSION=1.3.0&SERVICE=WMS");
     ping("/radarServer/nexrad/level3/IDD?north=50.00&south=20.00&west=-127&east=-66&time=present&var=NST");
   }
-
-
 }

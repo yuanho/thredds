@@ -33,9 +33,11 @@
 package thredds.server.catalogservice;
 
 import junit.framework.TestCase;
+import org.junit.experimental.categories.Category;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.validation.BindingResult;
-import ucar.unidata.test.util.ExternalServer;
+import ucar.unidata.util.test.category.NeedsExternalResource;
+import ucar.unidata.util.test.TestDir;
 
 /**
  * _more_
@@ -43,6 +45,7 @@ import ucar.unidata.test.util.ExternalServer;
  * @author edavis
  * @since 4.0
  */
+@Category(NeedsExternalResource.class)
 public class TestRemoteCatalogRequest extends TestCase
 {
   private String parameterNameCatalog = "catalog";
@@ -56,7 +59,7 @@ public class TestRemoteCatalogRequest extends TestCase
   private String bindResultMsg;
   private RemoteCatalogRequest rcr;
 
-  private String catUriString = "http://thredds-test.unidata.ucar.edu/thredds/catalog.xml";
+  private String catUriString = "http://"+TestDir.threddsTestServer+"/thredds/catalog.xml";
   private String cmdShow = "show";
   private String cmdSubset = "subset";
   private String cmdValidate = "validate";
@@ -64,12 +67,7 @@ public class TestRemoteCatalogRequest extends TestCase
 
   public TestRemoteCatalogRequest( String name )
   {
-    super( name );
-  }
-
-  @Override
-  public void setUp() {
-    ExternalServer.LIVE.assumeIsAvailable();
+    super(name);
   }
 
   public void testCommandDefaultValues()

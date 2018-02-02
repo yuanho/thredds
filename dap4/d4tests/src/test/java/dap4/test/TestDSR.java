@@ -1,5 +1,10 @@
 package dap4.test;
 
+
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
+
 /**
  * TestFrontPage verifies the front page
  * generation code
@@ -28,24 +33,9 @@ public class TestDSR extends DapTestCommon
     protected String root = null;
 
     //////////////////////////////////////////////////
-    // Constructor(s)
 
-    public TestDSR()
-        throws Exception
-    {
-        this("TestDSR");
-    }
-
-    public TestDSR(String name)
-        throws Exception
-    {
-        this(name, null);
-    }
-
-    public TestDSR(String name, String[] argv)
-        throws Exception
-    {
-        super(name);
+    @Before
+    public void setup() throws Exception {
         this.root = getDAP4Root();
         if(this.root == null)
             throw new Exception("dap4 root not found");
@@ -55,6 +45,7 @@ public class TestDSR extends DapTestCommon
     //////////////////////////////////////////////////
     // Junit test methods
 
+    @Test
     public void testDSR()
         throws Exception
     {
@@ -68,7 +59,7 @@ public class TestDSR extends DapTestCommon
             byteresult = mocker.execute();
         } catch (Throwable t) {
             t.printStackTrace();
-            assertTrue(false);
+            throw t;
         }
 
         // Convert the raw output to a string
@@ -90,7 +81,7 @@ public class TestDSR extends DapTestCommon
             pass = compare(baselinecontent, dsr);
             System.out.println(pass ? "Pass" : "Fail");
         }
-        assertTrue(pass);
+        Assert.assertTrue(pass);
     }
 
     //////////////////////////////////////////////////

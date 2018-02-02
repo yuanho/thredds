@@ -52,6 +52,8 @@ import java.net.URISyntaxException;
 import java.util.Formatter;
 import java.util.List;
 
+import static thredds.servlet.ServletUtil.setResponseContentLength;
+
 /**
  * Write HTML representations of a Catalog or Dataset
  *
@@ -87,15 +89,18 @@ public class ConfigCatalogHtmlWriter {
   public int writeCatalog(HttpServletRequest req, HttpServletResponse res, Catalog cat, boolean isLocalCatalog) throws IOException {
     String catHtmlAsString = convertCatalogToHtml(cat, isLocalCatalog);
 
-    res.setContentLength(catHtmlAsString.length());
+    // Once this header is set, we know the encoding, and thus the actual
+    // number of *bytes*, not characters, to encode
     res.setContentType(ContentType.html.getContentHeader());
+    int len = setResponseContentLength(res, catHtmlAsString);
+
     if (!req.getMethod().equals("HEAD")) {
       PrintWriter writer = res.getWriter();
       writer.write(catHtmlAsString);
       writer.flush();
     }
 
-    return catHtmlAsString.length();
+    return len;
   }
 
   /**
@@ -341,7 +346,9 @@ public class ConfigCatalogHtmlWriter {
     out.format("%s<head>\r\n", html.getHtmlDoctypeAndOpenTag());
     out.format("<title> Catalog Services</title>\r\n");
     out.format("<meta http-equiv='Content-Type' content='text/html; charset=UTF-8'>\r\n");
-    out.format("%s</head>\r\n", html.getTdsPageCssLink());
+    out.format("%s\r\n", html.getTdsPageCssLink());
+    out.format(html.getGoogleTrackingContent());  // String already has EOL.
+    out.format("</head>\r\n");
     out.format("<body>\r\n");
 
     StringBuilder sb = new StringBuilder();
@@ -357,8 +364,6 @@ public class ConfigCatalogHtmlWriter {
     // optional access through Viewers
     if (isLocalCatalog)
       viewerService.showViewers(out, dataset, request);
-
-    out.format("%s\r\n", html.getGoogleTrackingContent());
 
     out.format("</body>\r\n");
     out.format("</html>\r\n");

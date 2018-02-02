@@ -32,18 +32,19 @@
 
 package ucar.nc2.util.net;
 
+import java.util.List;
+
 import org.junit.Assert;
 import org.junit.Test;
-
+import org.junit.experimental.categories.Category;
 import ucar.httpservices.HTTPFactory;
 import ucar.httpservices.HTTPMethod;
 import ucar.httpservices.HTTPSession;
 import ucar.nc2.util.EscapeStrings;
 import ucar.nc2.util.Misc;
-import ucar.nc2.util.UnitTestCommon;
-import ucar.unidata.test.util.ExternalServer;
-
-import java.util.List;
+import ucar.unidata.util.test.UnitTestCommon;
+import ucar.unidata.util.test.category.NeedsExternalResource;
+import ucar.unidata.util.test.TestDir;
 
 public class TestMisc extends UnitTestCommon
 {
@@ -99,14 +100,12 @@ public class TestMisc extends UnitTestCommon
     }
 
     @Test
-    public void
-    testUTF8Stream()
-        throws Exception
+    @Category(NeedsExternalResource.class)
+    public void testUTF8Stream() throws Exception
     {
-        ExternalServer.LIVE.assumeIsAvailable();
         pass = true;
 
-        String catalogName = "http://thredds-test.unidata.ucar.edu/thredds/catalog.xml";
+        String catalogName = "http://"+ TestDir.remoteTestServer+"/thredds/catalog.xml";
 
         try (HTTPMethod m = HTTPFactory.Get(catalogName)) {
             int statusCode = m.execute();
@@ -146,7 +145,7 @@ public class TestMisc extends UnitTestCommon
     {
         String tag = "TestMisc.testGetProtocols";
         Assert.assertTrue(tag, protocheck("http://server/thredds/dodsC/", "http:"));
-        Assert.assertTrue(tag, protocheck("dods://thredds-test.unidata.ucar.edu/thredds/dodsC/grib/NCEP/NAM/CONUS_12km/best", "dods:"));
+        Assert.assertTrue(tag, protocheck("dods://"+TestDir.remoteTestServer+"/thredds/dodsC/grib/NCEP/NAM/CONUS_12km/best", "dods:"));
         Assert.assertTrue(tag, protocheck("dap4://ucar.edu:8080/x/y/z", "dap4:"));
         Assert.assertTrue(tag, protocheck("dap4:https://ucar.edu:8080/x/y/z", "dap4:https:"));
         Assert.assertTrue(tag, protocheck("file:///x/y/z", "file:"));

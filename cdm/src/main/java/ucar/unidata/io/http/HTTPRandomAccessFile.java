@@ -33,15 +33,17 @@
 
 package ucar.unidata.io.http;
 
-import ucar.httpservices.*;
 import org.apache.http.Header;
+import ucar.httpservices.HTTPFactory;
+import ucar.httpservices.HTTPMethod;
+import ucar.httpservices.HTTPSession;
 import ucar.unidata.util.Urlencoded;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.channels.WritableByteChannel;
 import java.nio.ByteBuffer;
+import java.nio.channels.WritableByteChannel;
 
 /**
  * Gives access to files over HTTP, using "Accept-Ranges" HTTP header to do random access.
@@ -140,7 +142,7 @@ public class HTTPRandomAccessFile extends ucar.unidata.io.RandomAccessFile {
   {
     try {
       try (HTTPMethod method = HTTPFactory.Get(session, url)) {
-        method.setRequestHeader("Range", "bytes=" + 0 + "-" + 0);
+        method.setRange(0,0);
         doConnect(method);
 
         int code = method.getStatusCode();
@@ -170,7 +172,7 @@ public class HTTPRandomAccessFile extends ucar.unidata.io.RandomAccessFile {
 
     if (debugDetails) {
       // request headers dont seem to be available until after execute()
-      printHeaders("Request: " + method.getName() + " " + method.getPath(), method.getRequestHeaders());
+      printHeaders("Request: " + method.getURL(), method.getRequestHeaders());
       printHeaders("Response: " + method.getStatusCode(), method.getResponseHeaders());
     }
   }
@@ -204,7 +206,7 @@ public class HTTPRandomAccessFile extends ucar.unidata.io.RandomAccessFile {
 
     try (HTTPMethod method = HTTPFactory.Get(session,url)) {
       method.setFollowRedirects(true);
-      method.setRequestHeader("Range", "bytes=" + pos + "-" + end);
+      method.setRange(pos,end);
       doConnect(method);
 
       int code = method.getStatusCode();
@@ -256,5 +258,14 @@ public class HTTPRandomAccessFile extends ucar.unidata.io.RandomAccessFile {
       return fileLength;
   }
 
+  /**
+   * Always returns {@code 0L}, as we cannot easily determine the last time that a remote file was modified.
+   *
+   * @return  {@code 0L}, always.
+   */
+  // LOOK: An idea of how we might implement this: https://github.com/Unidata/thredds/pull/479#issuecomment-194562614
+  @Override
+  public long getLastModified() {
+    return 0;
+  }
 }
-

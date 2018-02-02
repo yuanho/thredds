@@ -64,6 +64,17 @@ public class Grib1RecordScanner {
   static private final boolean debugGds = false;
   static private final int maxScan = 16000;
 
+  static boolean allowBadIsLength = false;
+  static boolean allowBadDsLength = false; // ECMWF workaround
+
+  public static void setAllowBadIsLength(boolean allowBadIsLength) {
+    Grib1RecordScanner.allowBadIsLength = allowBadIsLength;
+  }
+
+  public static void setAllowBadDsLength(boolean allowBadDsLength) {
+    Grib1RecordScanner.allowBadDsLength = allowBadDsLength;
+  }
+
   static public boolean isValidFile(RandomAccessFile raf) {
     try {
       raf.seek(0);
@@ -73,9 +84,18 @@ public class Grib1RecordScanner {
       int len = GribNumbers.uint3(raf);
       int edition = raf.read(); // read at byte 8
       if (edition != 1) return false;
-
+      
+      /* Due to a trick done by ECMWF's GRIBEX to support large GRIBs, we need a special treatment
+       * to fix the length of the GRIB message. See:
+       * https://software.ecmwf.int/wiki/display/EMOS/Changes+in+cycle+000281
+       * https://github.com/Unidata/thredds/issues/445
+      */
+      len = getFixedTotalLengthEcmwfLargeGrib(raf,len);
+      
       // check ending = 7777
       if (len > raf.length()) return false;
+      if (allowBadIsLength) return true;
+
       raf.skipBytes(len-12);
       for (int i = 0; i < 4; i++) {
         if (raf.read() != 55) return false;
@@ -87,7 +107,40 @@ public class Grib1RecordScanner {
     }
   }
 
-  ////////////////////////////////////////////////////////////
+  static int getFixedTotalLengthEcmwfLargeGrib(RandomAccessFile raf, int len) throws IOException{
+    int lenActual=len;
+    //int lenS4Actual=0;
+    //int sizeSection4=0;
+	if ((len & 0x800000) == 0x800000) {
+	  long pos0 = raf.getFilePointer(); // remember the actual pos
+	  int lenS1 = GribNumbers.uint3(raf); // section1Length
+	  raf.skipBytes(1); // table2Version
+	  if (GribNumbers.uint(raf) == 98) { // center (if ECMWF make the black magic)
+	    raf.skipBytes(2); // generatingProcessIdentifier, gridDefinition
+	    int s1f = GribNumbers.uint(raf); // section1Flags
+	    raf.skipBytes(lenS1 - (3 + 5)); // skips to next section
+	    int lenS2 = 0;
+	    int lenS3 = 0;
+	    if ((s1f & 128) == 128) { // section2 GDS exists
+		  lenS2 = GribNumbers.uint3(raf); // section2Length
+		  raf.skipBytes(lenS2 - 3); // skips to next section
+	    }
+	    if ((s1f & 64) == 64) { // section3 BMS exists
+		  lenS3 = GribNumbers.uint3(raf); // section3Length
+		  raf.skipBytes(lenS3 - 3); // skips to next section
+		}
+		int lenS4 = GribNumbers.uint3(raf); // section4Length
+		if (lenS4 < 120) { // here we are!!!!
+		  lenActual = (len & 0x7FFFFF) * 120 - lenS4 + 4; // the actual totalLength
+		  //lenS4Actual = lenActual - 8 - lenS1 - lenS2 - lenS3 - 4; // the actual length for section4
+		}
+	  }
+	  raf.seek(pos0); // recall the pos
+	}
+	return lenActual;
+  }
+
+////////////////////////////////////////////////////////////
 
   private Map<Long, Grib1SectionGridDefinition> gdsMap = new HashMap<>();
   private ucar.unidata.io.RandomAccessFile raf = null;
@@ -148,7 +201,11 @@ public class Grib1RecordScanner {
 
       Grib1SectionBitMap bitmap = pds.bmsExists() ? new Grib1SectionBitMap(raf) : null;
       Grib1SectionBinaryData dataSection = new Grib1SectionBinaryData(raf);
-      if (dataSection.getStartingPosition() + dataSection.getLength() > is.getEndPos()) { // presumably corrupt
+
+      long ending = is.getEndPos();
+      long dataEnding = dataSection.getStartingPosition() + dataSection.getLength();
+
+      if (dataEnding > is.getEndPos()) { // presumably corrupt
         // raf.seek(dataSection.getStartingPosition()); // go back to start of the dataSection, in hopes of salvaging
         log.warn("BAD GRIB-1 data message at " + dataSection.getStartingPosition() + " header= " + StringUtil2.cleanup(header)+" for="+raf.getLocation());
         throw new IllegalStateException("Illegal Grib1SectionBinaryData Message Length");
@@ -177,33 +234,28 @@ public class Grib1RecordScanner {
       else
         gdsMap.put(crc, gds);
 
-      long ending = is.getEndPos();
-
       // check that end section is correct
-      boolean foundEnding = true;
-      raf.seek(ending-4);
-      for (int i = 0; i < 4; i++) {
-        if (raf.read() != 55) {
-          foundEnding = false;
-          String clean = StringUtil2.cleanup(header);
-          if (clean.length() > 40) clean = clean.substring(0,40) + "...";
-          log.debug("Missing End of GRIB message at pos=" + ending + " header= " + clean+" for="+raf.getLocation());
-          break;
-        }
-      }
+      boolean foundEnding = checkEnding(ending);
       if (debug) System.out.printf(" read until %d grib ending at %d header ='%s' foundEnding=%s%n",
               raf.getFilePointer(), ending, StringUtil2.cleanup(header), foundEnding);
+
+      if (!foundEnding && (allowBadIsLength || is.isMessageLengthFixed))
+        foundEnding = checkEnding(dataSection.getStartingPosition() + dataSection.getLength());
+
+      if (!foundEnding && (allowBadDsLength || is.isMessageLengthFixed)) {
+        foundEnding = true;
+      }
 
       if (foundEnding) {
         lastPos = raf.getFilePointer();
         return new Grib1Record(header, is, gds, pds, bitmap, dataSection);
-
-      } else { // skip this record
-        // lastPos = is.getEndPos() + 20;  cant use is.getEndPos(), may be bad
-        lastPos += 20;  // skip over the "GRIB" of this message
-        if (hasNext()) // search forward for another one
-         return next();
       }
+
+      // skip this record
+      // lastPos = is.getEndPos() + 20;  cant use is.getEndPos(), may be bad
+      lastPos += 20;  // skip over the "GRIB" of this message
+      if (hasNext()) // search forward for another one
+        return next();
 
     } catch (Throwable t) {
       long pos = (is == null) ? -1 : is.getStartPos();
@@ -216,6 +268,22 @@ public class Grib1RecordScanner {
 
     return null; // last record was incomplete
   }
+
+  private boolean checkEnding(long ending) throws IOException {
+    // check that end section = "7777" is correct
+    raf.seek(ending - 4);
+    for (int i = 0; i < 4; i++) {
+      if (raf.read() != 55) {
+        String clean = StringUtil2.cleanup(header);
+        if (clean.length() > 40) clean = clean.substring(0, 40) + "...";
+        log.debug("Missing End of GRIB message at pos=" + ending + " header= " + clean + " for=" + raf.getLocation());
+        return false;
+      }
+    }
+    return true;
+  }
+
+
 
   public static void main(String[] args) throws IOException {
     int count = 0;

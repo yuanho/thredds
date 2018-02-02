@@ -37,10 +37,10 @@ import com.sun.jna.Native;
 import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
 import com.sun.jna.ptr.IntByReference;
-import ucar.nc2.constants.DataFormatType;
 import ucar.ma2.*;
 import ucar.nc2.*;
 import ucar.nc2.constants.CDM;
+import ucar.nc2.constants.DataFormatType;
 import ucar.nc2.iosp.AbstractIOServiceProvider;
 import ucar.nc2.iosp.IOServiceProviderWriter;
 import ucar.nc2.iosp.IospHelper;
@@ -68,7 +68,7 @@ import static ucar.nc2.jni.netcdf.Nc4prototypes.*;
  * @author caron
  * @see "http://www.unidata.ucar.edu/software/netcdf/docs/netcdf-c.html"
  * @see "http://earthdata.nasa.gov/sites/default/files/field/document/ESDS-RFC-022v1.pdf"
- * @see "http://www.unidata.ucar.edu/software/netcdf/docs/faq.html#fv15"
+ * @see "http://www.unidata.ucar.edu/software/netcdf/docs/faq.html#How-can-I-convert-HDF5-files-into-netCDF-4-files"
  * hdf5 features not supported
  * @see "http://www.unidata.ucar.edu/software/netcdf/win_netcdf/"
  * @since Oct 30, 2008
@@ -91,18 +91,21 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
           "/home/dmh/opt/netcdf4/lib", //temporary
           "c:/opt/netcdf", // Windows
           "/usr/jna_lib/",
+          "/usr/local/lib/", // MacOSX homebrew default
+          "/opt/local/lib/", // MacOSX MacPorts default
   };
 
   static private String jnaPath = null;
   static private String libName = DEFAULTNETCDF4LIBNAME;
 
-  static private final boolean debug = false,
-          debugCompound = false,
-          debugCompoundAtt = false,
-          debugDim = false,
-          debugUserTypes = false,
-          debugLoad = true,
-          debugWrite = false;
+  // TODO: These flags currently control debug messages that are printed to STDOUT. They ought to be logged to SLF4J.
+  // We could use SLF4J markers to filter which debug-level messages are printed.
+  // See http://stackoverflow.com/questions/12201112/can-i-add-custom-levels-to-slf4j
+  static private final boolean debugCompound = false;
+  static private final boolean debugCompoundAtt = false;
+  static private final boolean debugDim = false;
+  static private final boolean debugUserTypes = false;
+  static private final boolean debugWrite = false;
 
   /**
    * Use the default path to try to set jna.library.path
@@ -167,28 +170,22 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
         // jna_path may still be null (the user didn't specify a "jna.library.path"), but try to load anyway;
         // the necessary libs may be on the system PATH.
         nc4 = (Nc4prototypes) Native.loadLibrary(libName, Nc4prototypes.class);
+        // Make the library synchronized
+        nc4 = (Nc4prototypes) Native.synchronizedLibrary(nc4);
 
-        String message = String.format("NetCDF-4 C library loaded (jna_path='%s', libname='%s').", jnaPath, libName);
-        startupLog.info(message);
-
-        if (debugLoad) {
-          System.out.println(message);
-          System.out.printf("Netcdf nc_inq_libvers='%s' isProtected=%s%n", nc4.nc_inq_libvers(), Native.isProtected());
-        }
+        startupLog.info("Nc4Iosp: NetCDF-4 C library loaded (jna_path='{}', libname='{}').", jnaPath, libName);
+        log.debug("Netcdf nc_inq_libvers='{}' isProtected={}", nc4.nc_inq_libvers(), Native.isProtected());
       } catch (Throwable t) {
-        String message = String.format("NetCDF-4 C library not present (jna_path='%s', libname='%s').", jnaPath, libName);
+        String message = String.format(
+                        "Nc4Iosp: NetCDF-4 C library not present (jna_path='%s', libname='%s').", jnaPath, libName);
         startupLog.warn(message, t);
-
-        if (debugLoad) {
-          System.err.println(message);
-          System.err.println(t.getMessage());
-        }
       }
     }
 
     return nc4;
   }
 
+  // Shared mutable state. Only read/written in isClibraryPresent().
   private static Boolean isClibraryPresent = null;
 
   /**
@@ -196,7 +193,7 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
    *
    * @return true if present
    */
-  public static boolean isClibraryPresent() {
+  public static synchronized boolean isClibraryPresent() {
     if (isClibraryPresent == null) {
       isClibraryPresent = load() != null;
     }
@@ -221,8 +218,6 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
     skipEos = flags.isSet("HdfEos/turnOff");
   }
 
-  static final private boolean trace = false;
-
   //////////////////////////////////////////////////
   // Instance Variables
 
@@ -230,7 +225,7 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
   private boolean fill = true;
   private int ncid = -1;        // file id
   private int format = 0;       // from nc_inq_format
-  private boolean isClosed = false;
+  private boolean isClosed;
 
   private Map<Integer, UserType> userTypes = new HashMap<>();  // hash by typeid
   private Map<Group, Integer> groupHash = new HashMap<>();     // group -> nc4 grpid
@@ -254,27 +249,38 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
       this.chunker = chunker;
   }
 
+  /**
+   * Checks whether {@code raf} is a valid file NetCDF-4 file. Actually, it checks whether it is a valid HDF-5 file of
+   * any type. Furthermore, it checks whether the NetCDF C library is available on the system. If both conditions are
+   * satisfied, this method returns {@code true}; otherwise it returns {@code false}.
+   *
+   * @param raf  a file on disk.
+   * @return  {@code true} if {@code raf} is a valid HDF-5 file and the NetCDF C library is available.
+   * @throws IOException  if an I/O error occurs.
+   */
   public boolean isValidFile(RandomAccessFile raf) throws IOException {
-    boolean match = false;
-    if (raf.getLocation().endsWith(".nc")) {     // LOOK not a very good criteria
-      long savepos = raf.getFilePointer();
-      raf.seek(1);
-      byte[] hdr = new byte[3];
-      raf.readFully(hdr);
-      String shdr = new String(hdr, "US-ASCII");
-      if ("HDF".equals(shdr)) match = true;
-      raf.seek(savepos);
+    if (H5header.isValidFile(raf)) {
+      if (isClibraryPresent()) {
+        return true;
+      } else {
+        log.debug("File is valid but the NetCDF-4 native library isn't installed: {}", raf.getLocation());
+      }
     }
-    return match;
+
+    return false;
+  }
+
+  // 2016-06-06 note: Once netcdf-c v4.4.1 is released, we should be able to return much better information from
+  // getFileTypeDescription(), getFileTypeId(), and getFileTypeVersion() (inherited from superclass).
+  // See https://goo.gl/pSP1Bq
+
+  public String getFileTypeDescription() {
+    return "Netcdf/JNI: " + version;
   }
 
   public String getFileTypeId() {
     if (isEos) return "HDF5-EOS";
-    return version.isNetdf4format() ? DataFormatType.NETCDF4.getDescription() : DataFormatType.NETCDF.getDescription();
-  }
-
-  public String getFileTypeDescription() {
-    return "Netcdf/JNI: " + version;
+    return version.isNetdf4format() ? DataFormatType.NETCDF4.getDescription() : DataFormatType.HDF5.getDescription();
   }
 
   public void close() throws IOException {
@@ -306,11 +312,15 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
         raf.close(); // not used
 
     // open
-    if (debug) System.out.println("open " + ncfile.getLocation());
+    // netcdf-c can't handle "file:" prefix. Must remove it.
+    String location = NetcdfFile.canonicalizeUriString(ncfile.getLocation());
+    log.debug("open {}", location);
+
     IntByReference ncidp = new IntByReference();
-    if (trace) System.out.printf("nc4.nc_open %s%n", ncfile.getLocation());
-    int ret = nc4.nc_open(ncfile.getLocation(), readOnly ? NC_NOWRITE : NC_WRITE, ncidp);
+    int ret = nc4.nc_open(location, readOnly ? NC_NOWRITE : NC_WRITE, ncidp);
     if (ret != 0) throw new IOException(ret + ": " + nc4.nc_strerror(ret));
+
+    isClosed = false;
     ncid = ncidp.getValue();
 
     // format
@@ -318,7 +328,7 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
     ret = nc4.nc_inq_format(ncid, formatp);
     if (ret != 0) throw new IOException(ret + ": " + nc4.nc_strerror(ret));
     format = formatp.getValue();
-    if (debug) System.out.printf("open %s id=%d format=%d %n", ncfile.getLocation(), ncid, format);
+    log.debug("open {} id={} format={}", ncfile.getLocation(), ncid, format);
 
     // read root group
     makeGroup(new Group4(ncid, ncfile.getRootGroup(), null));
@@ -345,7 +355,7 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
     List<Attribute> gatts = makeAttributes(g4.grpid, Nc4prototypes.NC_GLOBAL, ngattsp.getValue(), null);
     for (Attribute att : gatts) {
       ncfile.addAttribute(g4.g, att);
-      if (debug) System.out.printf(" add Global Attribute %s %n", att);
+      log.debug(" add Global Attribute {}", att);
     }
 
     makeVariables(g4);
@@ -374,43 +384,50 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
   }
 
   private void makeDimensions(Group4 g4) throws IOException {
-    IntByReference ndimsp = new IntByReference();
-    int ret = nc4.nc_inq_ndims(g4.grpid, ndimsp);
+    // We need this in order to allocate the correct length for dimIdsInGroup.
+    IntByReference numDimsInGoup_p = new IntByReference();
+    int ret = nc4.nc_inq_ndims(g4.grpid, numDimsInGoup_p);
     if (ret != 0)
       throw new IOException(ret + ": " + nc4.nc_strerror(ret));
 
-    int[] dimids = new int[ndimsp.getValue()];
-    ret = nc4.nc_inq_dimids(g4.grpid, ndimsp, dimids, 0);
+    IntByReference numDimidsInGroup_p = new IntByReference();
+    int[] dimIdsInGroup = new int[numDimsInGoup_p.getValue()];
+    ret = nc4.nc_inq_dimids(g4.grpid, numDimidsInGroup_p, dimIdsInGroup, 0);
     if (ret != 0)
       throw new IOException(ret + ": " + nc4.nc_strerror(ret));
 
-    IntByReference nunlimdimsp = new IntByReference();
-    int[] unlimdimids = new int[Nc4prototypes.NC_MAX_DIMS];
-    ret = nc4.nc_inq_unlimdims(g4.grpid, nunlimdimsp, unlimdimids);
+    assert numDimsInGoup_p.getValue() == numDimidsInGroup_p.getValue() :
+            String.format("Number of dimensions in group (%s) differed from number of dimension IDs in group (%s).",
+                    numDimsInGoup_p.getValue(), numDimidsInGroup_p.getValue());
+
+    // We need this in order to allocate the correct length for unlimitedDimIdsInGroup.
+    IntByReference numUnlimitedDimsInGroup_p = new IntByReference();
+    ret = nc4.nc_inq_unlimdims(g4.grpid, numUnlimitedDimsInGroup_p, null);
     if (ret != 0)
       throw new IOException(ret + ": " + nc4.nc_strerror(ret));
 
-    int ndims = ndimsp.getValue();
-    for (int i = 0; i < ndims; i++) {
-      byte[] name = new byte[Nc4prototypes.NC_MAX_NAME + 1];
-      SizeTByReference lenp = new SizeTByReference();
-      ret = nc4.nc_inq_dim(g4.grpid, dimids[i], name, lenp);
+    int[] unlimitedDimIdsInGroup = new int[numUnlimitedDimsInGroup_p.getValue()];
+    ret = nc4.nc_inq_unlimdims(g4.grpid, numUnlimitedDimsInGroup_p, unlimitedDimIdsInGroup);
+    if (ret != 0)
+      throw new IOException(ret + ": " + nc4.nc_strerror(ret));
+
+    // Ensure array is sorted so that we can use binarySearch on it.
+    Arrays.sort(unlimitedDimIdsInGroup);
+
+    for (int dimId : dimIdsInGroup) {
+      byte[] dimNameBytes = new byte[Nc4prototypes.NC_MAX_NAME + 1];
+      SizeTByReference dimLength_p = new SizeTByReference();
+      ret = nc4.nc_inq_dim(g4.grpid, dimId, dimNameBytes, dimLength_p);
       if (ret != 0)
         throw new IOException(ret + ": " + nc4.nc_strerror(ret));
-      String dname = makeString(name);
 
-      boolean isUnlimited = containsInt(nunlimdimsp.getValue(), unlimdimids, i);
-      Dimension dim = new Dimension(dname, lenp.getValue().intValue(), true, isUnlimited, false);
-      ncfile.addDimension(g4.g, dim);
-      if (debug) System.out.printf(" add Dimension %s (%d) %n", dim, dimids[i]);
-    }
-  }
+      String dimName = makeString(dimNameBytes);
+      boolean isUnlimited = Arrays.binarySearch(unlimitedDimIdsInGroup, dimId) >= 0;
 
-  private boolean containsInt(int n, int[] have, int want) {
-    for (int i = 0; i < n; i++) {
-      if (have[i] == want) return true;
+      Dimension dimension = new Dimension(dimName, dimLength_p.getValue().intValue(), true, isUnlimited, false);
+      ncfile.addDimension(g4.g, dimension);
+      log.debug("add Dimension {} ({})", dimension, dimId);
     }
-    return false;
   }
 
   private void updateDimensions(Group g) throws IOException {
@@ -947,7 +964,7 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
     if (ret != 0)
       throw new IOException(ret + ": " + nc4.nc_strerror(ret));
     int nvars = nvarsp.getValue();
-    if (debug) System.out.printf(" nvars= %d %n", nvars);
+    log.debug("nvars= {}", nvars);
 
     int[] varids = new int[nvars];
     ret = nc4.nc_inq_varids(g4.grpid, nvarsp, varids);
@@ -1014,7 +1031,7 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
         v.addAttribute(att);
       }
 
-      if (debug) System.out.printf(" added Variable %s %n", v);
+      log.debug("added Variable {}", v);
     }
   }
 
@@ -1167,7 +1184,7 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
             isunsigned = true;
              //coverity[MISSING_BREAK]
           case NC_SHORT:
-            cdmtype = DataType.ENUM1;
+            cdmtype = DataType.ENUM2;
             break;
           case NC_UINT:
             isunsigned = true;
@@ -1379,7 +1396,7 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
 
       String name = makeString(nameb);
       int utype = classp.getValue();
-      if (debug) System.out.printf(" user type id=%d name=%s size=%d baseType=%d nfields=%d class=%d%n",
+      log.debug("user type id={} name={} size={} baseType={} nfields={} class={}",
               typeid, name, sizep.getValue().longValue(), baseType.getValue(), nfieldsp.getValue().longValue(), utype);
 
       UserType ut = new UserType(grpid, typeid, name, sizep.getValue().longValue(), baseType.getValue(),
@@ -1482,7 +1499,7 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
     return readDataSection(vinfo.g4.grpid, vinfo.varid, vinfo.typeid, section);
   }
 
-  private Array readDataSection(int grpid, int varid, int typeid, Section section)
+  Array readDataSection(int grpid, int varid, int typeid, Section section)
           throws IOException, InvalidRangeException {
     // general sectioning with strides
     SizeT[] origin = convertSizeT(section.getOrigin());
@@ -1532,6 +1549,7 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
         break;
 
       case Nc4prototypes.NC_INT:
+      case Nc4prototypes.NC_UINT:
         int[] vali = new int[len];
 
         ret = isUnsigned ? nc4.nc_get_vars_uint(grpid, varid, origin, shape, stride, vali)
@@ -1542,6 +1560,7 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
         break;
 
       case Nc4prototypes.NC_INT64:
+      case Nc4prototypes.NC_UINT64:
         long[] vall = new long[len];
         ret = isUnsigned ? nc4.nc_get_vars_ulonglong(grpid, varid, origin, shape, stride, vall)
                 : nc4.nc_get_vars_longlong(grpid, varid, origin, shape, stride, vall);
@@ -1551,6 +1570,7 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
         break;
 
       case Nc4prototypes.NC_SHORT:
+      case Nc4prototypes.NC_USHORT:
         short[] vals = new short[len];
         ret = isUnsigned ? nc4.nc_get_vars_ushort(grpid, varid, origin, shape, stride, vals)
                 : nc4.nc_get_vars_short(grpid, varid, origin, shape, stride, vals);
@@ -2249,7 +2269,7 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
     ncfile.finish();
 
     // create new file
-    if (debug) System.out.println("create " + ncfile.getLocation());
+    log.debug("create {}", ncfile.getLocation());
     int ret;
 
     /* IntByReference oldFormat = new IntByReference();
@@ -2261,6 +2281,8 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
     ret = nc4.nc_create(filename, createMode(), ncidp);
     if (ret != 0)
       throw new IOException(ret + ": " + nc4.nc_strerror(ret));
+
+    isClosed = false;
     ncid = ncidp.getValue();
 
     _setFill();
@@ -2328,10 +2350,17 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
 
     // dimensions
     for (Dimension dim : g4.g.getDimensions()) {
-      int dimid = addDimension(g4.grpid, dim.getShortName(), dim.getLength());
+      int dimLength = dim.isUnlimited() ? Nc4prototypes.NC_UNLIMITED : dim.getLength();
+      int dimid = addDimension(g4.grpid, dim.getShortName(), dimLength);
       g4.dimHash.put(dim, dimid);
+
       if (debugWrite)
         System.out.printf(" create dim '%s' (%d) in group '%s'%n", dim.getShortName(), dimid, g4.g.getFullName());
+    }
+
+    // enums
+    for(EnumTypedef en : g4.g.getEnumTypedefs()) {
+        createEnumType(g4, en);
     }
 
     // a type must be created for each structure.
@@ -2381,6 +2410,12 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
     if (v instanceof Structure) { // g4 and typid was stored in vinfo in createCompoundType
       vinfo = (Vinfo) v.getSPobject();
       typid = vinfo.typeid;
+
+    } else if(v.getDataType().isEnum()) {
+        EnumTypedef en = v.getEnumTypedef();
+        UserType ut = (UserType) en.getAnnotation("UserType");
+        typid = ut.typeid;
+        vinfo = new Vinfo(g4, -1, typid);
 
     } else {
       typid = convertDataType(v.getDataType(), v.isUnsigned());
@@ -2438,6 +2473,49 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
 
   }
 
+
+    /////////////////////////////////////
+    // Enum types
+
+    /*
+    Enum data types can be defined for netCDF-4/HDF5 format files.
+    As with CDM, they are a set of (id,int) values.
+
+    Create an enum type. Provide an ncid, a name, and base type
+    (some sort of int type).
+    After calling this function, fill out the type with repeated calls to nc_insert_enum.
+    Call nc_insert_enum once for each (id,int) you wish to insert into the enum.
+     */
+    private void createEnumType(Group4 g4, EnumTypedef en)
+            throws IOException
+    {
+        IntByReference typeidp = new IntByReference();
+        String name = en.getShortName();
+        DataType enumbase = en.getBaseType();
+        int basetype = NC_NAT;
+        if(enumbase == DataType.ENUM1) basetype = Nc4prototypes.NC_BYTE;
+        else if(enumbase == DataType.ENUM2) basetype = Nc4prototypes.NC_SHORT;
+        else if(enumbase == DataType.ENUM4) basetype = Nc4prototypes.NC_INT;
+        int ret = nc4.nc_def_enum(g4.grpid, basetype, name, typeidp);
+        if(ret != 0)
+            throw new IOException(nc4.nc_strerror(ret) + " on\n" + en);
+        int typeid = typeidp.getValue();
+        if(DEBUG) System.out.printf("added enum type %s (typeid %d)%n", name, typeid);
+        Map<Integer, String> emap = en.getMap();
+        for(Map.Entry<Integer, String> entry : emap.entrySet()) {
+            IntByReference val = new IntByReference(entry.getKey());
+            ret = nc4.nc_insert_enum(g4.grpid, typeid, (String) entry.getValue(), val);
+            if(ret != 0)
+                throw new IOException(nc4.nc_strerror(ret) + " on\n" + entry.getValue());
+            if(DEBUG) System.out.printf(" added enum type member %s: %d%n",
+                    entry.getValue(), entry.getKey());
+        }
+        // keep track of the User Defined types
+        UserType ut = new UserType(
+                g4.grpid, typeid, name, en.getBaseType().getSize(), basetype, (long) emap.size(), NC_ENUM);
+        userTypes.put(typeid, ut);
+        en.annotate("UserType", ut);  // dont know the varid yet
+    }
 
   /////////////////////////////////////
   // compound types
@@ -2659,6 +2737,8 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
     if (att.getShortName().equals(H5header.HDF5_DIMENSION_LABELS)) return;
     if (att.getShortName().equals(CDM.CHUNK_SIZES)) return;
     if (att.getShortName().equals(CDM.COMPRESS)) return;
+    if (att.getShortName().equals(CDM.NCPROPERTIES)) return;
+    if (att.getShortName().equals(CDM.ISNETCDF4)) return;
 
     int ret = 0;
     Array values = att.getValues();
@@ -2738,7 +2818,7 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
     boolean isUnsigned = isUnsigned(typeid);
     int sectionLen = (int) section.computeSize();
 
-    Object data = values.getStorage();
+    Object data = values.get1DJavaArray(values.getElementType());
 
     switch (typeid) {
 
@@ -2830,29 +2910,62 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
         break;
 
       default:
-        UserType userType = userTypes.get(typeid);
-        if (userType == null) {
-          throw new IOException("Unknown userType == " + typeid);
+            UserType userType = userTypes.get(typeid);
+            if(userType == null)
+                throw new IOException("Unknown userType == " + typeid);
+            switch (userType.typeClass) {
+            case NC_ENUM:
+                ret = writeEnumData(v, userType, grpid, varid, typeid, section, values);
+                if(ret != 0) {
+                    //log.error("{} on var {}", nc4.nc_strerror(ret), v);
+                    //return;
+                    throw new IOException(nc4.nc_strerror(ret));
+                }
+                break;
+            case NC_COMPOUND:
+                writeCompoundData((Structure) v, userType, grpid, varid, typeid, section, (ArrayStructure) values);
+                return;
+            case NC_VLEN:
+            case NC_OPAQUE:
+            default:
+                throw new IOException("Unsupported writing of userType= " + userType);
+            }
+        }
+        if (debugWrite) System.out.printf("OK writing var %s%n", v);
+  }
 
-        } else if (userType.typeClass == Nc4prototypes.NC_ENUM) {
-          //return readDataSection(grpid, varid, userType.baseTypeid, section);
+    private int
+    writeEnumData(Variable v, UserType userType, int grpid, int varid, int typeid, Section section, Array values)
+            throws IOException, InvalidRangeException
+    {
+        int ret = 0;
+        SizeT[] origin = convertSizeT(section.getOrigin());
+        SizeT[] shape = convertSizeT(section.getShape());
+        boolean isUnsigned = isUnsigned(typeid);
+        int sectionLen = (int) section.computeSize();
+        SizeT[] stride = convertSizeT(section.getStride());
 
-        } else if (userType.typeClass == Nc4prototypes.NC_VLEN) { // cannot subset
-          //return readVlen(grpid, varid, len, userType);
+        assert values.getSize() == sectionLen;
 
-        } else if (userType.typeClass == Nc4prototypes.NC_OPAQUE) {
-          //return readOpaque(grpid, varid, section, userType.size);
 
-        } else if (userType.typeClass == Nc4prototypes.NC_COMPOUND) {
-          writeCompoundData((Structure) v, userType, grpid, varid, typeid, section, (ArrayStructure) values);
-          return;
+        boolean stride1 = true;
+        for(int i = 0; i < stride.length; i++) {
+            if(stride[i].longValue() != 1) {
+                stride1 = false;
+                break;
+            }
         }
 
-        throw new IOException("Unsupported writing of userType= " + userType);
+        ByteBuffer bb = values.getDataAsByteBuffer(ByteOrder.nativeOrder());
+        byte[] data = bb.array();
+        if(stride1) {
+            ret = nc4.nc_put_vara(grpid, varid, origin, shape, data);
+        } else {
+            ret = nc4.nc_put_vars(grpid, varid, origin, shape, stride, data);
+        }
+        return ret;
     }
-    if (debugWrite) System.out.printf("OK writing var %s%n", v);
 
-  }
 
   /*
   Here is an example of using nc_put_vars_float to write – from an internal array – every other point of a netCDF variable named rh which is described by the C declaration float rh[4][6] (note the size of the dimensions):
@@ -3174,6 +3287,8 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
 
   @Override
   public void flush() throws IOException {
+    if (nc4 == null || ncid < 0) return;  // not open yet
+
     int ret = nc4.nc_sync(ncid);
     if (ret != 0)
       throw new IOException(ret + ": " + nc4.nc_strerror(ret));
@@ -3203,12 +3318,15 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
 
   @Override
   public boolean rewriteHeader(boolean largeFile) throws IOException {
+    // Rewriting just the header is not possible in NetCDF-4, so always return false.
+    // This will cause NetcdfFileWriter.setRedefineMode(false) to rewrite the entire file instead.
     return false;
   }
 
-
   @Override
   public void updateAttribute(Variable v2, Attribute att) throws IOException {
+    if (nc4 == null || ncid < 0) return;  // not open yet
+
     if (v2 == null)
       writeAttribute(ncid, Nc4prototypes.NC_GLOBAL, att, null);
     else {

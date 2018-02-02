@@ -8,10 +8,14 @@ import dap4.core.dmr.*;
 import dap4.core.dmr.parser.Dap4Parser;
 import dap4.core.dmr.parser.ParseUtil;
 import dap4.servlet.DMRPrint;
+import org.junit.Before;
+import org.junit.Test;
 
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
+
+import static org.junit.Assert.*;
 
 
 public class TestParserDMR extends DapTestCommon
@@ -52,16 +56,9 @@ public class TestParserDMR extends DapTestCommon
     protected boolean debug = false;
 
     //////////////////////////////////////////////////
-    // Constructor(s)
 
-    public TestParserDMR()
-    {
-        this("TestParserDMR");
-    }
-
-    public TestParserDMR(String name)
-    {
-        super(name);
+    @Before
+    public void setup() {
         setControls();
         defineTestCases();
         chooseTestcases();
@@ -161,6 +158,7 @@ public class TestParserDMR extends DapTestCommon
     //////////////////////////////////////////////////
     // Junit test method
 
+    @Test
     public void testParser()
             throws Exception
     {
@@ -225,21 +223,4 @@ public class TestParserDMR extends DapTestCommon
 
         return pass;
     }
-
-    //////////////////////////////////////////////////
-    // Standalone main procedure
-
-    static public void
-    main(String[] argv)
-            throws Exception
-    {
-        new TestParserDMR("TestParserDMR").testParser();
-    }// main
-
-
 }
-
-
-
-
-

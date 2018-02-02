@@ -4,6 +4,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import ucar.nc2.time.CalendarDate;
+import ucar.unidata.util.test.TestDir;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,7 +17,7 @@ import java.util.List;
  */
 @RunWith(Parameterized.class)
 public class TestDateExtractorFromName {
-  static String base = "thredds:resolve:http://thredds.ucar.edu/thredds/";
+  static String base = "thredds:resolve:http://"+ TestDir.threddsTestServer+"/thredds/";
 
   @Parameterized.Parameters(name="{0}")
   public static List<Object[]> getTestParameters() {

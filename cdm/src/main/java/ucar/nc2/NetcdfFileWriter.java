@@ -40,6 +40,7 @@ import ucar.nc2.iosp.netcdf3.N3iosp;
 import ucar.nc2.iosp.netcdf3.N3raf;
 import ucar.nc2.write.Nc4Chunking;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
@@ -72,7 +73,7 @@ import java.util.*;
  * @author caron
  * @since 7/25/12
  */
-public class NetcdfFileWriter implements AutoCloseable {
+public class NetcdfFileWriter implements Closeable {
   static private org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(NetcdfFileWriter.class);
   static private Set<DataType> validN3types = EnumSet.of(DataType.BYTE, DataType.CHAR, DataType.SHORT, DataType.INT,
           DataType.DOUBLE, DataType.FLOAT);
@@ -842,6 +843,10 @@ public class NetcdfFileWriter implements AutoCloseable {
     spiw.close();
 
     File prevFile = new File(location);
+    if (!prevFile.exists()) {
+      return;
+    }
+
     File tmpFile = new File(location + ".tmp");
     if (tmpFile.exists()) {
       boolean ok = tmpFile.delete();
@@ -1015,6 +1020,7 @@ public class NetcdfFileWriter implements AutoCloseable {
    */
   public synchronized void close() throws java.io.IOException {
     if (spiw != null) {
+      setRedefineMode(false);
       flush();
       spiw.close();
       spiw = null;

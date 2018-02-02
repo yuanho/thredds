@@ -47,8 +47,8 @@ import ucar.nc2.units.DateRange;
 import ucar.unidata.geoloc.LatLonPointImpl;
 import ucar.unidata.geoloc.LatLonRect;
 import ucar.unidata.geoloc.Station;
-import ucar.unidata.test.util.NeedsCdmUnitTest;
-import ucar.unidata.test.util.TestDir;
+import ucar.unidata.util.test.category.NeedsCdmUnitTest;
+import ucar.unidata.util.test.TestDir;
 
 import java.io.IOException;
 import java.text.DateFormat;
@@ -68,6 +68,13 @@ public class TestMiscPointFeature {
   public void testProblem2() throws IOException {
     String location =  TestDir.cdmLocalTestDataDir + "point/stationMultidimTimeJoin.ncml";
     assert 15 == TestPointDatasets.checkPointDataset(location, FeatureType.STATION, true);
+  }
+
+  @Test
+  @Category(NeedsCdmUnitTest.class)
+  public void testProblem3() throws IOException {
+    String location =  TestDir.cdmUnitTestDir + "ft/stationProfile/PROFILER_RASS_01hr_20091027_1500.nc";
+    assert 198 == TestPointDatasets.checkPointDataset(location, FeatureType.STATION_PROFILE, true);
   }
 
   @Test

@@ -11,6 +11,9 @@ import dap4.ce.parser.CEParser;
 import dap4.core.dmr.DapDataset;
 import dap4.core.dmr.DapFactoryDMR;
 import dap4.core.dmr.parser.Dap4Parser;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -73,16 +76,8 @@ public class TestParserCE extends DapTestCommon
     DapDataset dmr = null;
 
     //////////////////////////////////////////////////
-    // Constructor(s)
-
-    public TestParserCE()
-    {
-        this("TestParserCE");
-    }
-
-    public TestParserCE(String name)
-    {
-        super(name);
+    @Before
+    public void setup() {
         try {
             defineAllTestCases();
             chooseTestcases();
@@ -140,12 +135,13 @@ public class TestParserCE extends DapTestCommon
     //////////////////////////////////////////////////
     // Junit test method
 
+    @Test
     public void testParserCE()
             throws Exception
     {
         for(TestSet testset : chosentests) {
             if(!doOneTest(testset)) {
-                assertTrue(false);
+                Assert.assertTrue(false);
                 System.exit(1);
             }
         }
@@ -208,16 +204,6 @@ public class TestParserCE extends DapTestCommon
         }
         return pass;
     }
-
-    //////////////////////////////////////////////////
-    // Standalone main procecedure
-
-    static public void
-    main(String[] argv)
-            throws Exception
-    {
-        new TestParserCE("TestParserCE").testParserCE();
-    }// main
 
 
     ////////////////////////////////////

@@ -32,15 +32,16 @@
  */
 package opendap.test;
 
+import java.io.IOException;
+import java.io.StringWriter;
+
 import org.junit.Assert;
 import org.junit.Test;
-
+import org.junit.experimental.categories.Category;
 import ucar.nc2.dataset.NetcdfDataset;
-import ucar.nc2.util.UnitTestCommon;
-import ucar.unidata.test.util.TestDir;
-import ucar.unidata.test.util.ExternalServer;
-
-import java.io.*;
+import ucar.unidata.util.test.UnitTestCommon;
+import ucar.unidata.util.test.category.NeedsExternalResource;
+import ucar.unidata.util.test.TestDir;
 
 /**
  * Test nc2 dods in the JUnit framework.
@@ -75,18 +76,18 @@ public class TestGrid2 extends UnitTestCommon
     }
 
     @Test
+    @Category(NeedsExternalResource.class)
     public void testGrid2()
             throws Exception
     {
-        ExternalServer.REMOTETEST.assumeIsAvailable();
         System.out.println("TestGrid2:");
         String url = null;
         boolean pass = true;
         NetcdfDataset ncfile = null;
         if(TestDir.threddsTestServer.startsWith("localhost"))
-            url = "dods://" + TestDir.threddsTestServer + URLPATH_LOCAL;
+            url = "dods://" + TestDir.remoteTestServer + URLPATH_LOCAL;
         else
-            url = "dods://" + TestDir.threddsTestServer + URLPATH_REMOTE;
+            url = "dods://" + TestDir.remoteTestServer + URLPATH_REMOTE;
 
         try {
             ncfile = NetcdfDataset.openDataset(url);

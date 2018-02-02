@@ -32,18 +32,20 @@
  */
 package ucar.nc2.iosp.hdf5;
 
-import ucar.ma2.InvalidRangeException;
+import com.google.common.primitives.Ints;
+import com.google.common.primitives.Longs;
 import ucar.ma2.DataType;
+import ucar.ma2.InvalidRangeException;
 import ucar.ma2.Section;
+import ucar.nc2.Variable;
 import ucar.nc2.iosp.LayoutBB;
 import ucar.nc2.iosp.LayoutBBTiled;
-import ucar.nc2.Variable;
 import ucar.nc2.util.IO;
 import ucar.unidata.io.RandomAccessFile;
 
-import java.io.IOException;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
@@ -56,6 +58,13 @@ import java.nio.ByteOrder;
  * @author caron
  */
 class H5tiledLayoutBB implements LayoutBB {
+
+  static final int DEFAULTZIPBUFFERSIZE = 512;
+  // System property name for -D flag
+  static final String INFLATEBUFFERSIZE = "unidata.h5iosp.inflate.buffersize";
+
+  static public boolean debugFilter = false;
+
   private LayoutBBTiled delegate;
 
   private RandomAccessFile raf;
@@ -69,6 +78,8 @@ class H5tiledLayoutBB implements LayoutBB {
 
   private boolean debug = false;
 
+  private int inflatebuffersize = DEFAULTZIPBUFFERSIZE;
+
   /**
    * Constructor.
    * This is for HDF5 chunked data storage. The data is read by chunk, for efficency.
@@ -80,7 +91,8 @@ class H5tiledLayoutBB implements LayoutBB {
    * @throws InvalidRangeException if section invalid for this variable
    * @throws java.io.IOException   on io error
    */
-  H5tiledLayoutBB(Variable v2, Section wantSection, RandomAccessFile raf, H5header.Filter[] filters, ByteOrder byteOrder) throws InvalidRangeException, IOException {
+  H5tiledLayoutBB(Variable v2, Section wantSection, RandomAccessFile raf, H5header.Filter[] filters, ByteOrder byteOrder) throws InvalidRangeException, IOException
+  {
     wantSection = Section.fill(wantSection, v2.getShape());
 
     H5header.Vinfo vinfo = (H5header.Vinfo) v2.getSPobject();
@@ -95,7 +107,7 @@ class H5tiledLayoutBB implements LayoutBB {
     // Section.intersect(). It appears that storageSize (actually msl.chunkSize) may have an extra dimension, reletive
     // to the Variable.
     DataType dtype = v2.getDataType();
-    if ((dtype == DataType.CHAR) && (wantSection.getRank() < vinfo.storageSize.length))
+    if((dtype == DataType.CHAR) && (wantSection.getRank() < vinfo.storageSize.length))
       this.want = new Section(wantSection).appendRange(1);
     else
       this.want = wantSection;
@@ -110,7 +122,21 @@ class H5tiledLayoutBB implements LayoutBB {
     DataBTree.DataChunkIterator iter = vinfo.btree.getDataChunkIteratorFilter(this.want);
     DataChunkIterator dcIter = new DataChunkIterator(iter);
     delegate = new LayoutBBTiled(dcIter, chunkSize, elemSize, this.want);
-    
+
+    if(System.getProperty(INFLATEBUFFERSIZE) != null)  {
+      try {
+        int size = Integer.parseInt(System.getProperty(INFLATEBUFFERSIZE));
+        if(size <= 0)
+          H5iosp.log.warn(String.format("-D%s must be > 0",INFLATEBUFFERSIZE));
+        else
+          this.inflatebuffersize = size;
+      } catch (NumberFormatException nfe) {
+        H5iosp.log.warn(String.format("-D%s is not an integer",INFLATEBUFFERSIZE));
+      }
+    }
+    if(debugFilter)
+      System.out.printf("inflate buffer size -D%s = %d%n",INFLATEBUFFERSIZE,this.inflatebuffersize);
+
     if (debug) System.out.println(" H5tiledLayout: " + this);
   }
 
@@ -160,10 +186,33 @@ class H5tiledLayoutBB implements LayoutBB {
   }
 
   private class DataChunk implements ucar.nc2.iosp.LayoutBBTiled.DataChunk {
+    // Copied from ArrayList.
+    private static final int MAX_ARRAY_LEN = Integer.MAX_VALUE - 8;
+
     DataBTree.DataChunk delegate;
 
     DataChunk(DataBTree.DataChunk delegate) {
       this.delegate = delegate;
+
+      // Check that the chunk length (delegate.size) isn't greater than the maximum array length that we can
+      // allocate (MAX_ARRAY_LEN). This condition manifests in two ways.
+      // 1) According to the HDF docs (https://www.hdfgroup.org/HDF5/doc/Advanced/Chunking/, "Chunk Maximum Limits"),
+      //    max chunk length is 4GB (i.e. representable in an unsigned int). Java, however, only has signed ints.
+      //    So, if we try to store a large unsigned int in a singed int, it'll overflow, and the signed int will come
+      //    out negative. We're trusting here that the chunk size read from the HDF file is never negative.
+      // 2) In most JVM implementations MAX_ARRAY_LEN is actually less than Integer.MAX_VALUE (see note in ArrayList).
+      //    So, we could have: "MAX_ARRAY_LEN < chunkSize <= Integer.MAX_VALUE".
+      if (delegate.size < 0 || delegate.size > MAX_ARRAY_LEN) {
+        // We want to report the size of the chunk, but we may be in an arithmetic overflow situation. So to get the
+        // correct value, we're going to reinterpet the integer's bytes as long bytes.
+        byte[] intBytes = Ints.toByteArray(delegate.size);
+        byte[] longBytes = new byte[8];
+        System.arraycopy(intBytes, 0, longBytes, 4, 4);   // Copy int bytes to the lowest 4 positions.
+        long chunkSize = Longs.fromByteArray(longBytes);  // Method requires an array of length 8.
+
+        throw new IllegalArgumentException(String.format("Filtered data chunk is %s bytes and we must load it all " +
+                "into memory. However the maximum length of a byte array in Java is %s.", chunkSize, MAX_ARRAY_LEN));
+      }
     }
 
     public int[] getOffset() {
@@ -176,31 +225,38 @@ class H5tiledLayoutBB implements LayoutBB {
     }
 
     public ByteBuffer getByteBuffer() throws IOException {
-      // read the data
-      byte[] data = new byte[delegate.size];
-      raf.seek(delegate.filePos);
-      raf.readFully(data);
+      try {
+        // read the data
+        byte[] data = new byte[delegate.size];
+        raf.seek(delegate.filePos);
+        raf.readFully(data);
 
-      // apply filters backwards
-      for (int i = filters.length - 1; i >= 0; i--) {
-        H5header.Filter f = filters[i];
-        if (isBitSet(delegate.filterMask, i)) {
-          if (debug) System.out.println("skip for chunk " + delegate);
-          continue;
+        // apply filters backwards
+        for (int i = filters.length - 1; i >= 0; i--) {
+          H5header.Filter f = filters[i];
+          if (isBitSet(delegate.filterMask, i)) {
+            if (debug) System.out.println("skip for chunk " + delegate);
+            continue;
+          }
+          if (f.id == 1) {
+            data = inflate(data);
+          } else if (f.id == 2) {
+            data = shuffle(data, f.data[0]);
+          } else if (f.id == 3) {
+            data = checkfletcher32(data);
+          } else
+            throw new RuntimeException("Unknown filter type="+f.id);
         }
-        if (f.id == 1) {
-          data = inflate(data);
-        } else if (f.id == 2) {
-          data = shuffle(data, f.data[0]);
-        } else if (f.id == 3) {
-          data = checkfletcher32(data);
-        } else
-          throw new RuntimeException("Unknown filter type="+f.id);
-      }
 
-      ByteBuffer result = ByteBuffer.wrap(data);
-      result.order(byteOrder);
-      return result;
+        ByteBuffer result = ByteBuffer.wrap(data);
+        result.order(byteOrder);
+        return result;
+      } catch (OutOfMemoryError e) {
+        Error oom =  new OutOfMemoryError("Ran out of memory trying to read HDF5 filtered chunk. Either increase the " +
+                "JVM's heap size (use the -Xmx switch) or reduce the size of the dataset's chunks (use nccopy -c).");
+        oom.initCause(e);  // OutOfMemoryError lacks a constructor with a cause parameter.
+        throw oom;
+      }
     }
 
     /**
@@ -213,12 +269,16 @@ class H5tiledLayoutBB implements LayoutBB {
     private byte[] inflate(byte[] compressed) throws IOException {
       // run it through the Inflator
       ByteArrayInputStream in = new ByteArrayInputStream(compressed);
-      java.util.zip.InflaterInputStream inflater = new java.util.zip.InflaterInputStream(in);
-      ByteArrayOutputStream out = new ByteArrayOutputStream(8 * compressed.length);
-      IO.copy(inflater, out);
+      java.util.zip.Inflater inflater = new java.util.zip.Inflater();
+      java.util.zip.InflaterInputStream inflatestream
+        = new java.util.zip.InflaterInputStream(in, inflater, inflatebuffersize);
+      int len = Math.min(8 * compressed.length, MAX_ARRAY_LEN);
+      ByteArrayOutputStream out = new ByteArrayOutputStream(len); // Fixes KXL-349288
+      IO.copyB(inflatestream, out, len);
 
       byte[] uncomp = out.toByteArray();
-      if (debug) System.out.println(" inflate bytes in= " + compressed.length + " bytes out= " + uncomp.length);
+      if (debug || debugFilter)
+        System.out.println(" inflate bytes in= " + compressed.length + " bytes out= " + uncomp.length);
       return uncomp;
     }
 

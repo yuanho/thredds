@@ -32,15 +32,17 @@
 
 package thredds.tds.idd;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import ucar.unidata.test.util.ExternalServer;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+
+import org.junit.Test;
+import org.junit.experimental.categories.Category;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import ucar.unidata.util.test.category.NeedsExternalResource;
+import ucar.unidata.util.test.TestDir;
 
 /**
  * _more_
@@ -49,6 +51,7 @@ import java.util.List;
  * @since 4.0
  */
 @RunWith(Parameterized.class)
+@Category(NeedsExternalResource.class)
 public class CrawlRandomDatasetsOnMotherlodeTds
 {
     private String datasetUrl;
@@ -61,7 +64,7 @@ public class CrawlRandomDatasetsOnMotherlodeTds
 
     @Parameterized.Parameters(name="{0}")
     public static Collection<Object[]> getDatasetUrls() throws IOException {
-        String tdsUrl = "http://thredds.ucar.edu/thredds/";
+        String tdsUrl = "http://"+ TestDir.threddsServer+"/thredds/";
         StringBuilder log = new StringBuilder();
 
         List<String> catalogUrls = new ArrayList<>();
@@ -88,7 +91,6 @@ public class CrawlRandomDatasetsOnMotherlodeTds
     @Test
     public void crawlDataset()
     {
-        ExternalServer.LIVE.assumeIsAvailable();
         CatalogDatasetTestUtils.assertDatasetIsAccessible( this.datasetUrl);
     }
 }

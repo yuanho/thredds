@@ -94,12 +94,8 @@ configure(javaProjects) {
     apply from: "$rootDir/gradle/dependencies.gradle"
 
     dependencies {
+        testCompile project(":testUtil")  // Contains stuff like the JUnit @Category classes.
         testCompile libraries["junit"]
-
-        if (name != "cdm") {
-            // Applying this to "cdm" creates a circular dependency.
-            testCompile project(path: ':cdm', configuration: 'testArtifacts')
-        }
     }
 
     tasks.withType(Test).all {
@@ -119,19 +115,20 @@ configure(javaProjects) {
 
         useJUnit {
             if (isJenkins) {
-                excludeCategories 'ucar.unidata.test.util.NotJenkins'
+                excludeCategories 'ucar.unidata.util.test.category.NotJenkins'
             }
 
             if (isTravis) {
-                excludeCategories 'ucar.unidata.test.util.NotTravis'
+                excludeCategories 'ucar.unidata.util.test.category.NotTravis'
+                excludeCategories 'ucar.unidata.util.test.category.NeedsExternalResource'
             }
 
             if (!isContentRootAvailable && !isJenkins) {     // Don't skip tests on Jenkins, except NotJenkins ones.
-                excludeCategories 'ucar.unidata.test.util.NeedsContentRoot'
+                excludeCategories 'ucar.unidata.util.test.category.NeedsContentRoot'
             }
 
             if (!isCdmUnitTestDirAvailable && !isJenkins) {  // Don't skip tests on Jenkins, except NotJenkins ones.
-                excludeCategories 'ucar.unidata.test.util.NeedsCdmUnitTest'
+                excludeCategories 'ucar.unidata.util.test.category.NeedsCdmUnitTest'
             }
         }
     }
@@ -162,34 +159,45 @@ boolean testRuntimeHasDepNamed(Project project, String depName) {
 
 ///////////////////////////////////////////////// Root tasks /////////////////////////////////////////////////
 
-// FIXME: I'm not sure if either of these consider :it:integrationTest. That would make sense, because it hasn't been
-// evaluated yet. How best to fix?
-// UPDATE (2015-08-13): "testAll" is causing :it:integrationTest to run, but its report isn't being included in the
-// root report.
+gradle.projectsEvaluated {
+    configure (rootProject) {
+        // By default, subprojects are evaluated AFTER their parents, meaning that the full set of subproject Test
+        // tasks won't be available until all subprojects have been evaluated. That's why we've delayed the
+        // configuration of the following two rootProject tasks.
+        Set<Task> subprojectTestTasks = subprojects*.tasks*.withType(Test).flatten()
 
-task testAll(group: 'Build') {
-    description = 'Runs all subproject Test tasks'
-    dependsOn subprojects*.tasks*.withType(Test)
-}
+        task testAll(group: 'Verification') {
+            description = 'Runs all subproject Test tasks'
+            dependsOn subprojectTestTasks
+        }
 
-task rootTestReport(type: TestReport, group: 'Reports') {
-    description = 'Generates an aggregate test report'
-    destinationDir = file("$buildDir/reports/allTests")
+        task rootTestReport(type: TestReport, group: 'Reports') {
+            description = 'Generates an aggregate test report'
+            destinationDir = file("$buildDir/reports/allTests")
 
-    Collection<Task> subprojectTestTasks = subprojects*.tasks*.withType(Test).flatten()
+            // All Test tasks will be finalized by this task. As a result, this task needn't be invoked directly.
+            subprojectTestTasks*.finalizedBy it
 
-    // All Test tasks will be finalized by this task. As a result, this task needn't be invoked directly.
-    subprojectTestTasks*.finalizedBy it
+            // :buildSrc:test always runs and produces a binary results directory, no matter what.
+            assert file('buildSrc/build/test-results/test/binary').exists() : "Can't find :buildSrc test result dir."
 
-    // We could also do "reportOn subprojectTestTasks" here, but that would cause this task to be dependent on all
-    // subproject Tests. So, we couldn't do something like ":grib:test" and expect only GRIB tests to run because:
-    //     ":grib:test" --finalizedBy--> ":rootTestReport" --dependsOn--> "all_subproject_Tests"
-    // In other words, all subproject tests would get run, no matter what.
-    // Passing File arguments to reportOn() instead doesn't create that dependency.
-    reportOn subprojectTestTasks*.binResultsDir
+            // Add test results of the :buildSrc project. Note that by this time in the 'thredds' config,
+            // :buildSrc has already run as a *separate* build (see http://stackoverflow.com/questions/26597147),
+            // so we cannot programmatically access its Project object to retrieve this paths.
+            reportOn file('buildSrc/build/test-results/binary/test')
 
-    // Wait until all Test tasks have run. This creates a task *ordering*, not a dependency.
-    mustRunAfter subprojectTestTasks
+            // We could also do "reportOn subprojectTestTasks" here, but that would cause this task to be dependent on
+            // all subproject Tests. So, we couldn't do something like ":grib:test" and expect only GRIB tests to run
+            // because:
+            //     ":grib:test" --finalizedBy--> ":rootTestReport" --dependsOn--> "all_subproject_Tests"
+            // In other words, all subproject tests would get run, no matter what.
+            // Passing File arguments to reportOn() instead doesn't create that dependency.
+            reportOn subprojectTestTasks*.binResultsDir
+
+            // Wait until all Test tasks have run. This creates a task *ordering*, not a dependency.
+            mustRunAfter subprojectTestTasks
+        }
+    }
 }
 
 apply plugin: "base"  // Gives us the "clean" task for removing rootTestReport's output.

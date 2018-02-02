@@ -37,8 +37,8 @@ import org.junit.experimental.categories.Category;
 import ucar.nc2.Variable;
 import ucar.nc2.dataset.NetcdfDataset;
 import ucar.nc2.util.cache.FileCacheIF;
-import ucar.unidata.test.util.NeedsCdmUnitTest;
-import ucar.unidata.test.util.TestDir;
+import ucar.unidata.util.test.category.NeedsCdmUnitTest;
+import ucar.unidata.util.test.TestDir;
 
 import java.io.IOException;
 
@@ -65,20 +65,22 @@ public class TestAggNested {
 
   @Test
   public void TestCached() throws IOException {
-    NetcdfDataset.initNetcdfFileCache(10, 20, -1);
+    try {
+      NetcdfDataset.initNetcdfFileCache(10, 20, -1);
 
-    String filename = TestDir.cdmUnitTestDir + "ncml/nestedAgg/test.ncml";
-    try (NetcdfDataset ncd = NetcdfDataset.acquireDataset(filename, null)) {
-      Variable time = ncd.findVariable("time");
-      assert time != null;
-      assert time.getSize() == 19723 : time.getSize();
-      //System.out.printf(" time array = %s%n", NCdumpW.toString(time.read()));
+      String filename = TestDir.cdmUnitTestDir + "ncml/nestedAgg/test.ncml";
+      try (NetcdfDataset ncd = NetcdfDataset.acquireDataset(filename, null)) {
+        Variable time = ncd.findVariable("time");
+        assert time != null;
+        assert time.getSize() == 19723 : time.getSize();
+        //System.out.printf(" time array = %s%n", NCdumpW.toString(time.read()));
+      }
+
+      FileCacheIF cache = NetcdfDataset.getNetcdfFileCache();
+      cache.showCache();
+    } finally {
+      NetcdfDataset.shutdown();
     }
-
-    FileCacheIF cache = NetcdfDataset.getNetcdfFileCache();
-    cache.showCache();
-
-    NetcdfDataset.disableNetcdfFileCache();
   }
 
   /*@Test

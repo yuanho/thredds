@@ -32,12 +32,14 @@
  */
 package thredds.tds.ethan.httpunit;
 
+import java.util.Properties;
+
 import com.meterware.httpunit.WebConversation;
 import com.meterware.httpunit.WebResponse;
 import junit.framework.TestCase;
-import ucar.unidata.test.util.ExternalServer;
-
-import java.util.Properties;
+import org.junit.experimental.categories.Category;
+import ucar.unidata.util.test.category.NeedsExternalResource;
+import ucar.unidata.util.test.TestDir;
 
 /**
  * A description
@@ -45,6 +47,7 @@ import java.util.Properties;
  * @author edavis
  * @since 15 July 2005 15:50:59 -0600
  */
+@Category(NeedsExternalResource.class)
 public class TestServerSiteOutOfBox extends TestCase
 {
   static private org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger( TestServerSiteOutOfBox.class );
@@ -52,7 +55,7 @@ public class TestServerSiteOutOfBox extends TestCase
   private WebConversation wc;
 
   /** The TDS site to test. */
-  private String host = "thredds.ucar.edu";
+  private String host = TestDir.threddsTestServer;
 
   private String targetUrl;
 
@@ -64,7 +67,6 @@ public class TestServerSiteOutOfBox extends TestCase
   @Override
   protected void setUp()
   {
-    ExternalServer.LIVE.assumeIsAvailable();
     wc = new WebConversation();
 
     Properties env = System.getProperties();

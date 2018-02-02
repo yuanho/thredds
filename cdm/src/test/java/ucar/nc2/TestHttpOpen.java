@@ -33,18 +33,18 @@
 
 package ucar.nc2;
 
-import org.junit.Before;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collection;
+
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import ucar.nc2.dataset.NetcdfDataset;
 import ucar.nc2.dt.grid.GridDataset;
-import ucar.unidata.test.util.ExternalServer;
-import ucar.unidata.test.util.TestDir;
-
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collection;
+import ucar.unidata.util.test.category.NeedsExternalResource;
+import ucar.unidata.util.test.TestDir;
 
 /**
  * Describe
@@ -53,15 +53,16 @@ import java.util.Collection;
  * @since 6/19/2014
  */
 @RunWith(Parameterized.class)
+@Category(NeedsExternalResource.class)
 public class TestHttpOpen {
 
   @Parameterized.Parameters(name="{0}")
   public static Collection testUrls() {
       Object[][] data = new Object[][]{
-              {"http://"+ TestDir.threddsTestServer+"/thredds/fileServer/testdata/2004050412_eta_211.nc"},
-              {"http://"+TestDir.threddsTestServer+"/thredds/fileServer/testdata/2004050400_eta_211.nc"},
-              {"http://"+TestDir.threddsTestServer+"/thredds/fileServer/testdata/2004050312_eta_211.nc"},
-              {"http://"+TestDir.threddsTestServer+"/thredds/fileServer/testdata/2004050300_eta_211.nc"},
+              {"http://"+ TestDir.remoteTestServer+"/thredds/fileServer/testdata/2004050412_eta_211.nc"},
+              {"http://"+TestDir.remoteTestServer+"/thredds/fileServer/testdata/2004050400_eta_211.nc"},
+              {"http://"+TestDir.remoteTestServer+"/thredds/fileServer/testdata/2004050312_eta_211.nc"},
+              {"http://"+TestDir.remoteTestServer+"/thredds/fileServer/testdata/2004050300_eta_211.nc"},
       };
       return Arrays.asList(data);
   }
@@ -69,11 +70,6 @@ public class TestHttpOpen {
   private final String url;
   public TestHttpOpen(String url) {
       this.url = url;
-  }
-
-  @Before
-  public void setUp() {
-    ExternalServer.REMOTETEST.assumeIsAvailable();
   }
 
   // HTTP = 4300 HTTP2 = 5500 msec 20-25% slower

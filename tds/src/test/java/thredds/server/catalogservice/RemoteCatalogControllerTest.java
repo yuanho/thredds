@@ -10,8 +10,9 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.web.servlet.ModelAndView;
 import thredds.mock.web.MockTdsContextLoader;
-import ucar.unidata.test.util.ExternalServer;
-import ucar.unidata.test.util.NeedsContentRoot;
+import ucar.unidata.util.test.category.NeedsContentRoot;
+import ucar.unidata.util.test.category.NeedsExternalResource;
+import ucar.unidata.util.test.TestDir;
 
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -56,10 +57,10 @@ public class RemoteCatalogControllerTest extends AbstractCatalogServiceTest{
 	}
 
 	@Test
+	@Category(NeedsExternalResource.class)
 	public void showCommandTest() throws Exception{
-		ExternalServer.LIVE.assumeIsAvailable();
 		// Testing against some reliable remote TDS
-		catUriString = "http://thredds.ucar.edu/thredds/catalog.xml";
+		catUriString = "http://"+ TestDir.threddsTestServer+"/thredds/catalog.xml";
 		request.setRequestURI(catUriString);
 
 		// REQUEST WITH DEFAULT VALUES
@@ -86,8 +87,8 @@ public class RemoteCatalogControllerTest extends AbstractCatalogServiceTest{
 
 	// http://thredds.ucar.edu/thredds/catalog/grib/NCEP/NAM/CONUS_80km/catalog.html?dataset=grib/NCEP/NAM/CONUS_80km/best
 	@Test
+	@Category(NeedsExternalResource.class)
 	public void subsetCommandTest() throws Exception{
-		ExternalServer.LIVE.assumeIsAvailable();
 		// SUBSET REQUEST PROVIDING A datasetId
 		// setting up the request with default values:
 		// command =null
@@ -95,7 +96,7 @@ public class RemoteCatalogControllerTest extends AbstractCatalogServiceTest{
 		// htmlView= null
 		// verbose = null
 		// command null and a providing a datasetId becomes in a subset command  
-		catUriString = "http://thredds.ucar.edu/thredds/catalog/grib/NCEP/NAM/CONUS_80km/catalog.xml";
+		catUriString = "http://"+TestDir.threddsTestServer+"/thredds/catalog/grib/NCEP/NAM/CONUS_80km/catalog.xml";
 		request.setParameter(parameterNameCatalog, catUriString);
 		request.setParameter(parameterNameCommand, command);
 		request.setParameter(parameterNameDatasetId, "grib/NCEP/NAM/CONUS_80km/Best");
@@ -110,17 +111,16 @@ public class RemoteCatalogControllerTest extends AbstractCatalogServiceTest{
 		// and we should have a nice response		
 		assertTrue( response.getStatus() == 200 );
 	}
-	
-	//@Ignore
+
 	@Test
+	@Category(NeedsExternalResource.class)
 	public void validateCommandTest() throws Exception {
-		ExternalServer.LIVE.assumeIsAvailable();
 		// VALIDATE REQUEST 
 		// command =validate
 		// datasetId= null
 		// htmlView= null
 		// verbose = null 
-    catUriString = "http://thredds.ucar.edu/thredds/catalog/grib/NCEP/NAM/CONUS_80km/catalog.xml";
+    catUriString = "http://"+TestDir.threddsTestServer+"/thredds/catalog/grib/NCEP/NAM/CONUS_80km/catalog.xml";
 		request.setParameter(parameterNameCatalog, catUriString);
 		request.setParameter(parameterNameCommand, cmdValidate);
 		request.setParameter(parameterNameDatasetId, datasetId);

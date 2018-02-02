@@ -40,7 +40,7 @@ import org.junit.runners.Parameterized;
 import ucar.httpservices.HTTPFactory;
 import ucar.httpservices.HTTPMethod;
 import ucar.httpservices.HTTPSession;
-import ucar.unidata.test.util.NeedsCdmUnitTest;
+import ucar.unidata.util.test.category.NeedsCdmUnitTest;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -88,7 +88,7 @@ public class TestRestrictDataset
     @Test
     public void testRestriction()
     {
-        //String server = "http://thredds-test.unidata.ucar.edu/thredds/";
+        //String server = "http://"+TestDir.threddsTestServer+"/thredds/";
         //String endpoint = server + path;
 
         String endpoint = TestWithLocalServer.withPath(path);

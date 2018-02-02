@@ -59,8 +59,7 @@ import java.util.jar.JarFile;
  */
 public class NcepLocalTables extends LocalTables {
   static private final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(NcepLocalTables.class);
-  //static private final String oldResourcePath = "resources/grib2/ncep/";       // not sure what version this is, assume 13 overrides all
-  static private final String defaultResourcePath = "resources/grib2/ncep/v13.0.0/";
+  static private final String defaultResourcePath = "resources/grib2/ncep/v20.0.0/";
   private static NcepLocalTables single;
 
   public static Grib2Customizer getCust(Grib2Table table) {
@@ -335,7 +334,7 @@ public class NcepLocalTables extends LocalTables {
         return new GribLevelType(code, "m", null, true);
 
       case 241:
-        return new GribLevelType(code, "seq", null, true);   // eg see NCEP World Watch datasets
+        return new GribLevelType(code, "count", null, true);   // eg see NCEP World Watch datasets
 
       default:
         return super.getVertUnit(code);
@@ -344,7 +343,6 @@ public class NcepLocalTables extends LocalTables {
 
   @Override
   public String getLevelNameShort(int id) {
-    if (id < 192) return super.getLevelNameShort(id);
     switch (id) {
       case 200:
         return "entire_atmosphere_single_layer";
@@ -433,7 +431,6 @@ public class NcepLocalTables extends LocalTables {
 
   @Override
   public String getStatisticNameShort(int id) {
-    if (id < 192) return super.getStatisticNameShort(id);
     switch (id) {
       case 192:
         return "ClimatologicalMeanValue";

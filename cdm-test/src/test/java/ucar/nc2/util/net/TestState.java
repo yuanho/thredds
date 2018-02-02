@@ -32,15 +32,18 @@
 
 package ucar.nc2.util.net;
 
-import ucar.httpservices.*;
+import java.nio.charset.Charset;
 
 import org.junit.Assert;
 import org.junit.Test;
-import ucar.nc2.util.UnitTestCommon;
-import ucar.unidata.test.util.TestDir;
-import ucar.unidata.test.util.ExternalServer;
-
-import java.nio.charset.Charset;
+import org.junit.experimental.categories.Category;
+import ucar.httpservices.HTTPFactory;
+import ucar.httpservices.HTTPMethod;
+import ucar.httpservices.HTTPMethodStream;
+import ucar.httpservices.HTTPSession;
+import ucar.unidata.util.test.UnitTestCommon;
+import ucar.unidata.util.test.category.NeedsExternalResource;
+import ucar.unidata.util.test.TestDir;
 
 /**
  * Test the proper state transitions of HTTPSession
@@ -74,11 +77,9 @@ public class TestState extends UnitTestCommon
 
 
     @Test
-    public void
-    testState()
-        throws Exception
+    @Category(NeedsExternalResource.class)
+    public void testState() throws Exception
     {
-        ExternalServer.REMOTETEST.assumeIsAvailable();
         int status = 0;
         HTTPSession session = HTTPFactory.newSession(SESSIONURL); // do NOT use try(){}
         Assert.assertFalse(session.isClosed());

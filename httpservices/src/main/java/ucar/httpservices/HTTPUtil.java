@@ -34,11 +34,16 @@
 package ucar.httpservices;
 
 import org.apache.http.*;
+import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.message.BasicHeader;
 import org.apache.http.protocol.HttpContext;
 
 import java.io.*;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 
 abstract public class HTTPUtil
@@ -47,13 +52,20 @@ abstract public class HTTPUtil
     //////////////////////////////////////////////////
     // Constants
 
-    public static final Charset UTF8 = Charset.forName("UTF-8");
-    public static final Charset ASCII = Charset.forName("US-ASCII");
+    static final public Charset UTF8 = Charset.forName("UTF-8");
+    static final public Charset ASCII = Charset.forName("US-ASCII");
+
+    //////////////////////////////////////////////////
+
+    enum URIPart
+    {
+        SCHEME, USERINFO, HOST, PORT, PATH, QUERY, FRAGMENT
+    }
 
     //////////////////////////////////////////////////
     // Interceptors
 
-    static abstract public class InterceptCommon
+    static abstract class InterceptCommon
     {
         protected HttpContext context = null;
         protected List<Header> headers = new ArrayList<Header>();
@@ -61,9 +73,10 @@ abstract public class HTTPUtil
         protected HttpResponse response = null;
         protected boolean printheaders = false;
 
-        public void setPrint(boolean tf)
+        public InterceptCommon setPrint(boolean tf)
         {
             this.printheaders = tf;
+            return this;
         }
 
         public void
@@ -75,19 +88,36 @@ abstract public class HTTPUtil
             response = null;
         }
 
-        synchronized public HttpResponse getRequest()
+        synchronized HttpRequest getRequest()
+        {
+            return this.request;
+        }
+
+        synchronized HttpResponse getResponse()
         {
             return this.response;
         }
 
-        synchronized public HttpResponse getResponse()
-        {
-            return this.response;
-        }
-
-        synchronized public HttpContext getContext()
+        synchronized HttpContext getContext()
         {
             return this.context;
+        }
+
+        synchronized public HttpEntity getRequestEntity()
+        {
+            if(this.request != null
+                    && this.request instanceof HttpEntityEnclosingRequest) {
+                return ((HttpEntityEnclosingRequest) this.request).getEntity();
+            } else
+                return null;
+        }
+
+        synchronized HttpEntity getResponseEntity()
+        {
+            if(this.response != null) {
+                return this.response.getEntity();
+            } else
+                return null;
         }
 
         synchronized public List<Header> getHeaders(String key)
@@ -100,12 +130,12 @@ abstract public class HTTPUtil
             return keyh;
         }
 
-        synchronized public List<Header> getHeaders()
+        synchronized List<Header> getHeaders()
         {
             return this.headers;
         }
 
-        public void
+        void
         printHeaders()
         {
             if(this.request != null) {
@@ -151,18 +181,16 @@ abstract public class HTTPUtil
     static public class InterceptRequest extends InterceptCommon
             implements HttpRequestInterceptor
     {
-        HttpRequest req = null;
-
         synchronized public void
         process(HttpRequest request, HttpContext context)
                 throws HttpException, IOException
         {
-            this.req = request;
+            this.request = request;
             this.context = context;
             if(this.printheaders)
                 printHeaders();
-            else if(this.req != null) {
-                Header[] hdrs = this.req.getAllHeaders();
+            else if(this.request != null) {
+                Header[] hdrs = this.request.getAllHeaders();
                 for(int i = 0; i < hdrs.length; i++) {
                     headers.add(hdrs[i]);
                 }
@@ -173,7 +201,7 @@ abstract public class HTTPUtil
     //////////////////////////////////////////////////
     // Misc.
 
-    static public byte[]
+    static byte[]
     readbinaryfile(InputStream stream)
             throws IOException
     {
@@ -220,10 +248,11 @@ abstract public class HTTPUtil
         }
     }
 
+
     /**
      * @return {@code true} if the objects are equal or both null
      */
-    public static boolean equals(final Object obj1, final Object obj2)
+    static boolean equals(final Object obj1, final Object obj2)
     {
         return obj1 == null ? obj2 == null : obj1.equals(obj2);
     }
@@ -231,7 +260,7 @@ abstract public class HTTPUtil
     /**
      * @return {@code true} if the objects are equal or both null
      */
-    public static boolean schemeEquals(String s1, String s2)
+    static boolean schemeEquals(String s1, String s2)
     {
         if(s1 == s2) return true;
         if((s1 == null) ^ (s2 == null)) return false;
@@ -239,5 +268,169 @@ abstract public class HTTPUtil
         return s1.equals(s2);
     }
 
+    /**
+     * Convert a uri string to an instance of java.net.URI.
+     * The critical thing is that this procedure can handle backslash
+     * escaped uris as well as %xx escaped uris.
+     *
+     * @param u the uri to convert
+     * @return The URI corresponding to u.
+     * @throws URISyntaxException
+     */
+    static public URI
+    parseToURI(final String u)
+            throws URISyntaxException
+    {
+        StringBuilder buf = new StringBuilder();
+        int i = 0;
+        while(i < u.length()) {
+            char c = u.charAt(i++);
+            if(c == '\\') {
+                if(i + 1 == u.length())
+                    throw new URISyntaxException(u, "Trailing '\' at end of url");
+                buf.append("%5c");
+                c = u.charAt(i++);
+                buf.append(String.format("%%%02x", (int) c));
+            } else
+                buf.append(c);
+        }
+        return new URI(buf.toString());
+    }
 
+    /**
+     * Remove selected fields from a  URI producing a new URI
+     *
+     * @param uri      the uri to convert
+     * @param excludes the parts to exclude
+     * @return The new URI instance
+     */
+    static URI
+    uriExclude(final URI uri, URIPart... excludes)
+    {
+        URIBuilder urib = new URIBuilder();
+        EnumSet<URIPart> set = EnumSet.of(excludes[0], excludes);
+        for(URIPart part : URIPart.values()) {
+            if(set.contains(part)) continue;
+            switch (part) {
+            case SCHEME:
+                urib.setScheme(uri.getScheme());
+                break;
+            case USERINFO:
+                urib.setUserInfo(uri.getUserInfo());
+                break;
+            case HOST:
+                urib.setHost(uri.getHost());
+                break;
+            case PORT:
+                urib.setPort(uri.getPort());
+                break;
+            case PATH:
+                urib.setPath(uri.getPath());
+                break;
+            case QUERY:
+                urib.setCustomQuery(uri.getQuery());
+                break;
+            case FRAGMENT:
+                urib.setFragment(uri.getFragment());
+                break;
+            }
+        }
+        try {
+            return urib.build();
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException(e.getMessage());
+        }
+    }
+
+    /**
+     * Temporary hack to remove Content-Encoding: XXX-Endian headers
+     */
+    static class ContentEncodingInterceptor extends InterceptCommon
+            implements HttpResponseInterceptor
+    {
+        synchronized public void
+        process(HttpResponse response, HttpContext context)
+                throws HttpException, IOException
+        {
+            if(response == null) return;
+            Header[] hdrs = response.getAllHeaders();
+            if(hdrs == null) return;
+            boolean modified = false;
+            for(int i = 0; i < hdrs.length; i++) {
+                Header h = hdrs[i];
+                if(!h.getName().equalsIgnoreCase("content-encoding")) continue;
+                String value = h.getValue();
+                if(value.trim().toLowerCase().endsWith("-endian")) {
+                    hdrs[i] = new BasicHeader("X-Content-Encoding", value);
+                    modified = true;
+                }
+            }
+            if(modified)
+                response.setHeaders(hdrs);
+            // Similarly, suppress encoding for Entity
+            HttpEntity entity = response.getEntity();
+            if(entity != null) {
+                Header ceheader = entity.getContentEncoding();
+                if(ceheader != null) {
+                    String value = ceheader.getValue();
+                    if(value.trim().toLowerCase().endsWith("-endian")) {
+                        int x = 0;//entity.setContentEncoding(new BasicHeader("Content-Encoding","Identity"));
+                    }
+                }
+            }
+        }
+    }
+
+    static protected HTTPSession.Settings
+    merge(HTTPSession.Settings globalsettings, HTTPSession.Settings localsettings)
+    {
+        // merge global and local settings; local overrides global.
+        HTTPSession.Settings merge = new HTTPSession.Settings();
+        for(HTTPSession.Prop key : globalsettings.getKeys()) {
+            merge.setParameter(key, globalsettings.getParameter(key));
+        }
+        for(HTTPSession.Prop key : localsettings.getKeys()) {
+            merge.setParameter(key, localsettings.getParameter(key));
+        }
+        return merge;
+    }
+
+
+    /**
+     * Convert a zero-length string to null
+     *
+     * @param s the string to check for length
+     * @return null if s.length() == 0, s otherwise
+     */
+    static String nullify(String s)
+    {
+        if(s != null && s.length() == 0) s = null;
+        return s;
+    }
+
+    String joinList(List<String> list, String delim)
+    {
+        StringBuilder buf = new StringBuilder();
+        for(int i = 0; i < list.size(); i++) {
+            if(i > 0) buf.append(delim);
+            buf.append(list.get(i));
+        }
+        return buf.toString();
+    }
+
+    /**
+     * Convert path to use '/' consistently and
+     * to remove any trailing '/'
+     *
+     * @param path convert this path
+     * @return canonicalized version
+     */
+    static public String canonicalpath(String path)
+    {
+        if(path == null) return null;
+        path = path.replace('\\', '/');
+        if(path.endsWith("/"))
+            path = path.substring(0, path.length() - 1);
+        return path;
+    }
 }

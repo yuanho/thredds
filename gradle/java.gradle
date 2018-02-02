@@ -1,9 +1,8 @@
-import org.gradle.api.internal.java.JavaLibrary
 import org.gradle.api.internal.artifacts.publish.DefaultPublishArtifact
+import org.gradle.api.internal.java.JavaLibrary
 
 configure(javaProjects) {
     apply plugin: 'java'
-    apply plugin: 'provided-base'  // Gives us the "provided" configuration.
 
     sourceCompatibility = JavaVersion.VERSION_1_7
     targetCompatibility = JavaVersion.VERSION_1_7
@@ -11,27 +10,26 @@ configure(javaProjects) {
 
     // These will only run when we execute the "publish" task, NOT "assemble".
     // That'll save us from a lot of unnecessary build time in the common case.
-    task sourcesJar(type: Jar, dependsOn: classes) {
+    task sourcesJar(type: Jar, dependsOn: classes, group: 'Publishing') {
         classifier = 'sources'
         from sourceSets.main.allSource
     }
 
-    task javadocJar(type: Jar, dependsOn: javadoc) {
+    task javadocJar(type: Jar, dependsOn: javadoc, group: 'Publishing') {
         classifier = 'javadoc'
         from javadoc.destinationDir
     }
 
 
+    // Add sources and javadoc jars to the set of components that will be published for each project.
     JavaLibrary java = components.java
     Set<PublishArtifact> componentArtifacts = java.usages.first().artifacts
 
-    def sourcesArtifact = new DefaultPublishArtifact(tasks.sourcesJar.archiveName, 'jar', 'jar', 'sources', null,
-            tasks.sourcesJar.archivePath, tasks.sourcesJar)
-    componentArtifacts << sourcesArtifact
+    componentArtifacts << new DefaultPublishArtifact(tasks.sourcesJar.archiveName, 'jar', 'jar', 'sources', null,
+                                                     tasks.sourcesJar.archivePath, tasks.sourcesJar)
 
-    def javadocArtifact = new DefaultPublishArtifact(tasks.javadocJar.archiveName, 'jar', 'jar', 'javadoc', null,
-            tasks.javadocJar.archivePath, tasks.javadocJar)
-    componentArtifacts << javadocArtifact
+    componentArtifacts << new DefaultPublishArtifact(tasks.javadocJar.archiveName, 'jar', 'jar', 'javadoc', null,
+                                                     tasks.javadocJar.archivePath, tasks.javadocJar)
 
 
     // Will apply to "compileJava", "compileTestJava", "compileSourceSetJava", etc.

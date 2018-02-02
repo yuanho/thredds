@@ -1,34 +1,5 @@
 /*
- * Copyright 1998-2014 University Corporation for Atmospheric Research/Unidata
- *
- *   Portions of this software were developed by the Unidata Program at the
- *   University Corporation for Atmospheric Research.
- *
- *   Access and use of this software shall impose the following obligations
- *   and understandings on the user. The user is granted the right, without
- *   any fee or cost, to use, copy, modify, alter, enhance and distribute
- *   this software, and any derivative works thereof, and its supporting
- *   documentation for any purpose whatsoever, provided that this entire
- *   notice appears in all copies of the software, derivative works and
- *   supporting documentation.  Further, UCAR requests that the user credit
- *   UCAR/Unidata in any publications that result from the use of this
- *   software or in any product that includes this software. The names UCAR
- *   and/or Unidata, however, may not be used in any advertising or publicity
- *   to endorse or promote any products or commercial entity unless specific
- *   written permission is obtained from UCAR/Unidata. The user also
- *   understands that UCAR/Unidata is not obligated to provide the user with
- *   any support, consulting, training or assistance of any kind with regard
- *   to the use, operation and performance of this software nor to provide
- *   the user with any updates, revisions, new versions or "bug fixes."
- *
- *   THIS SOFTWARE IS PROVIDED BY UCAR/UNIDATA "AS IS" AND ANY EXPRESS OR
- *   IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- *   WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- *   DISCLAIMED. IN NO EVENT SHALL UCAR/UNIDATA BE LIABLE FOR ANY SPECIAL,
- *   INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING
- *   FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
- *   NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION
- *   WITH THE ACCESS, USE OR PERFORMANCE OF THIS SOFTWARE.
+ * (c) 1998-2016 University Corporation for Atmospheric Research/Unidata
  */
 package ucar.nc2.iosp.gini;
 
@@ -57,30 +28,17 @@ import java.nio.*;
  */
 
 class Giniheader {
-  static final byte[] MAGIC = new byte[]{0x43, 0x44, 0x46, 0x01};
-  static final int MAGIC_DIM = 10;
-  static final int MAGIC_VAR = 11;
-  static final int MAGIC_ATT = 12;
-  private boolean debug = false, debugPos = false, debugString = false, debugHeaderSize = false;
-  private ucar.unidata.io.RandomAccessFile raf;
+  static private final int GINI_PIB_LEN = 21;   // gini product identification block
+  static private final int GINI_PDB_LEN = 512;  // gini product description block
+  static private final int GINI_HED_LEN = GINI_PDB_LEN + GINI_PIB_LEN;  // gini product header
+  static private final double DEG_TO_RAD = 0.017453292;
+  private boolean debug = false;
   private ucar.nc2.NetcdfFile ncfile;
-  // private PrintStream out = System.out;
   static private org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(Giniheader.class);
-  int numrecs = 0; // number of records written
-  int recsize = 0; // size of each record (padded)
   int dataStart = 0; // where the data starts
-  int recStart = 0; // where the record data starts
-  int GINI_PIB_LEN = 21;   // gini product indentification block
-  int GINI_PDB_LEN = 512;  // gini product description block
-  int GINI_HED_LEN = 533;  // gini product header
-  double DEG_TO_RAD = 0.017453292;
-  double EARTH_RAD_KMETERS = 6371.200;
-  byte Z_DEFLATED = 8;
-  byte DEF_WBITS = 15;
-  private long actualSize, calcSize;
   protected int Z_type = 0;
 
-  public boolean isValidFile(ucar.unidata.io.RandomAccessFile raf) {
+  static public boolean isValidFile(ucar.unidata.io.RandomAccessFile raf) {
     try {
       return validatePIB(raf);
     } catch (IOException e) {
@@ -89,36 +47,32 @@ class Giniheader {
     }
   }
 
+  static private int findWMOHeader(String pib) {
+    int pos = pib.indexOf("KNES");
+    if (pos == -1) pos = pib.indexOf("CHIZ");
 
-  boolean validatePIB(ucar.unidata.io.RandomAccessFile raf) throws IOException {
-    this.raf = raf;
-    this.actualSize = raf.length();
+    if (pos != -1) {                    /* 'KNES' or 'CHIZ' found         */
+      pos = pib.indexOf("\r\r\n");    /* ----- UPC mod 20030710 -----   */
+      if (pos != -1) {                 /* CR CR NL found             */
+        pos = pos + 3;
+      }
+    } else {
+      pos = 0;
+    }
+    return pos;
+  }
+
+  static boolean validatePIB(ucar.unidata.io.RandomAccessFile raf) throws IOException {
     int pos = 0;
     raf.seek(pos);
 
     // gini header process
     String pib = raf.readString(GINI_PIB_LEN + GINI_HED_LEN);
 
-    pos = pib.indexOf("KNES");
-    if (pos == -1) pos = pib.indexOf("CHIZ");
-
-    if (pos != -1) {                    /* 'KNES' or 'CHIZ' found         */
-      pos = pib.indexOf("\r\r\n");    /* <<<<< UPC mod 20030710 >>>>>   */
-      if (pos != -1) {                 /* CR CR NL found             */
-        pos = pos + 3;
-      }
-    } else {
-      pos = 0;
-      return false;
-    }
-    return true;
+    return findWMOHeader(pib) != 0;
   }
 
-
   byte[] readPIB(ucar.unidata.io.RandomAccessFile raf) throws IOException {
-    this.raf = raf;
-    this.actualSize = raf.length();
-    int doff = 0;
     int pos = 0;
     raf.seek(pos);
 
@@ -130,58 +84,31 @@ class Giniheader {
     raf.readFully(b);
     String pib = new String(b, CDM.utf8Charset);
 
-    //if( !pib.startsWith("TICZ")) return (int)pos; // gini header start with TICZ 99....
-
-    pos = pib.indexOf("KNES");
-    if (pos == -1) pos = pib.indexOf("CHIZ");
-
-    if (pos != -1) {                    /* 'KNES' or 'CHIZ' found         */
-      pos = pib.indexOf("\r\r\n");    /* <<<<< UPC mod 20030710 >>>>>   */
-      if (pos != -1) {                 /* CR CR NL found             */
-        pos = pos + 3;
-      }
-    } else {
-      pos = 0;
-    }
-
+    pos = findWMOHeader(pib);
     dataStart = pos + GINI_PDB_LEN;
 
     // Test the next two bytes to see if the image portion looks like
     // it is zlib-compressed
-    byte[] b2 = new byte[2];
-    b2[0] = b[pos];
-    b2[1] = b[pos + 1];
-    Inflater inflater = new Inflater(false);
-    int resultLength = 0;
-    int inflatedLen = 0;
+    byte[] b2 = new byte[] {b[pos], b[pos + 1]};
     int pos1 = 0;
 
-    if (isZlibHed(b2) == 1) {
+    if (Giniiosp.isZlibHed(b2)) {
       Z_type = 1;
+      Inflater inflater = new Inflater(false);
       inflater.setInput(b, pos, GINI_HED_LEN);
       try {
-        resultLength = inflater.inflate(buf, 0, GINI_HED_LEN);
+        int resultLength = inflater.inflate(buf, 0, GINI_HED_LEN);
+        if (resultLength != GINI_HED_LEN) log.warn("GINI: Zlib inflated image header size error");
       } catch (DataFormatException ex) {
-        log.warn("ERROR on inflation " + ex.getMessage());
+        log.error("ERROR on inflation " + ex.getMessage());
         ex.printStackTrace();
         throw new IOException(ex.getMessage());
       }
 
-      if (resultLength != GINI_HED_LEN) System.out.println("Zlib inflated image header size error");
-      inflatedLen = GINI_HED_LEN - inflater.getRemaining();
+      int inflatedLen = GINI_HED_LEN - inflater.getRemaining();
 
       String inf = new String(buf, CDM.utf8Charset);
-      pos1 = inf.indexOf("KNES");
-      if (pos1 == -1) pos1 = inf.indexOf("CHIZ");
-
-      if (pos1 != -1) {                    /* 'KNES' or 'CHIZ' found         */
-        pos1 = inf.indexOf("\r\r\n");    /* <<<<< UPC mod 20030710 >>>>>   */
-        if (pos1 != -1) {                 /* CR CR NL found             */
-          pos1 = pos1 + 3;
-        }
-      } else {
-        pos1 = 0;
-      }
+      pos1 = findWMOHeader(inf);
 
       System.arraycopy(buf, pos1, head, 0, GINI_PDB_LEN);
       dataStart = pos + inflatedLen;
@@ -197,8 +124,7 @@ class Giniheader {
     return head;
   }
 
-  void read(ucar.unidata.io.RandomAccessFile raf, ucar.nc2.NetcdfFile ncfile, PrintStream out) throws IOException {
-    this.raf = raf;
+  void read(ucar.unidata.io.RandomAccessFile raf, ucar.nc2.NetcdfFile ncfile) throws IOException {
     this.ncfile = ncfile;
     int proj;                        /* projection type indicator     */
                                             /* 1 - Mercator                  */
@@ -218,25 +144,18 @@ class Giniheader {
     int gminute;
     int gsecond;
     double lonv;                        /* meridian parallel to y-axis */
-    double diff_lon;
     double lon1 = 0.0, lon2 = 0.0;
     double lat1 = 0.0, lat2 = 0.0;
-    double latt = 0.0, lont = 0.0;
+    double latt;
     double imageScale = 0.0;
-    //long       hoff = 0;
 
-
-    // long pos = GINI_PIB_LEN;
     byte[] head = readPIB(raf);
     ByteBuffer bos = ByteBuffer.wrap(head);
-    //if (out != null) this.out = out;
-    actualSize = raf.length();
 
     Attribute att = new Attribute(CDM.CONVENTIONS, "GRIB");
     this.ncfile.addAttribute(null, att);
 
     bos.position(0);
-    byte[] b2 = new byte[2];
 
     //sat_id = (int )( raf.readByte());
     Byte nv = bos.get();
@@ -261,7 +180,7 @@ class Giniheader {
     bos.position(bos.position() + 4);
 
     gyear = (int) (bos.get());
-    gyear += (gyear < 50) ? 2000 : 1900;
+    gyear += (gyear < 50) ? 2000 : 1900; //TODO: Find example where this hack is necessary
     gmonth = (int) (bos.get());
     gday = (int) (bos.get());
     ghour = (int) (bos.get());
@@ -319,18 +238,12 @@ class Giniheader {
     ** Get grid dimensions
     */
 
-    byte[] b3 = new byte[3];
-    bos.get(b2, 0, 2);
-    nx = getInt(b2, 2);
-    Integer ni = nx;
-    att = new Attribute("NX", ni);
+    nx = bos.getShort();
+    att = new Attribute("NX", nx);
     this.ncfile.addAttribute(null, att);
 
-
-    bos.get(b2, 0, 2);
-    ny = getInt(b2, 2);
-    ni = ny;
-    att = new Attribute("NY", ni);
+    ny = bos.getShort();
+    att = new Attribute("NY", ny);
     this.ncfile.addAttribute(null, att);
 
     ProjectionImpl projection = null;
@@ -344,43 +257,23 @@ class Giniheader {
         */
 
         /* Latitude of first grid point */
-        bos.get(b3, 0, 3);
-        int nn = getInt(b3, 3);
-        lat1 = (double) nn / 10000.0;
-        Double nd = lat1;
-        att = new Attribute("Latitude0", nd);
+        lat1 = readScaledInt(bos);
+        att = new Attribute("Latitude0", lat1);
         this.ncfile.addAttribute(null, att);
 
-        bos.get(b3, 0, 3);
-        nn = getInt(b3, 3);
-        int b33 = (b3[0] & (1 << 7));
-        //  if( b33 == 128)      //west longitude
-        //      nd = new Double(((double) nn) / 10000.0 * (-1));
-        //  else
-        nd = ((double) nn) / 10000.0;
-        lon1 = nd;
-        att = new Attribute("Longitude0", nd);
+        lon1 = readScaledInt(bos);
+        att = new Attribute("Longitude0", lon1);
         this.ncfile.addAttribute(null, att);
 
         /* Longitude of last grid point */
         bos.get(); /* skip one byte */
 
-        bos.get(b3, 0, 3);
-        nn = getInt(b3, 3);
-        nd = ((double) nn) / 10000.0;
-        lat2 = nd;
-        att = new Attribute("LatitudeN", nd);
+        lat2 = readScaledInt(bos);
+        att = new Attribute("LatitudeN", lat2);
         this.ncfile.addAttribute(null, att);
 
-        bos.get(b3, 0, 3);
-        nn = getInt(b3, 3);
-        b33 = (b3[0] & (1 << 7));
-        // if( b33 == 128)      //west longitude
-        //      nd = new Double(((double) nn) / 10000.0 * (-1));
-        //  else
-        nd = ((double) nn) / 10000.0;
-        lon2 = nd;
-        att = new Attribute("LongitudeN", nd);
+        lon2 = readScaledInt(bos);
+        att = new Attribute("LongitudeN", lon2);
         this.ncfile.addAttribute(null, att);
 
         /*
@@ -393,7 +286,7 @@ class Giniheader {
         if (lon1 < 0) lon_1 += 360.0;
         if (lon2 < 0) lon_2 += 360.0;
 
-        lonv = lon_1 - (lon_1 - lon_2) / 2.0;
+        lonv = (lon_1 + lon_2) / 2.0;
 
         if (lonv > 180.0) lonv -= 360.0;
         if (lonv < -180.0) lonv += 360.0;
@@ -406,23 +299,11 @@ class Giniheader {
         bos.getInt(); /* skip 4 bytes */
         bos.get();    /* skip 1 byte */
 
-        bos.get(b3, 0, 3);
-        nn = getInt(b3, 3);
-        nd = ((double) nn) / 10000.0;
-
         /* Latitude of proj cylinder intersects */
-        att = new Attribute("LatitudeX", nd);
-        latin = nd;
+        latin = readScaledInt(bos);
+        att = new Attribute("LatitudeX", latin);
         this.ncfile.addAttribute(null, att);
 
-        latt = 0.0; // this is not corrected  // jc 8/7/08 not used
-
-        // dyKm =  Math.cos( DEG_TO_RAD*latt);
-        // dxKm = DEG_TO_RAD * EARTH_RAD_KMETERS * Math.abs((lon_1-lon_2) / (nx-1));
-        //  double dy  =  EARTH_RAD_KMETERS * Math.cos(DEG_TO_RAD*latt) / (ny - 1);
-        //  dyKm = dy *( Math.log( Math.tan(DEG_TO_RAD*( (lat2-latt)/2.0 + 45.0 ) ) )
-        //                  -Math.log( Math.tan(DEG_TO_RAD*( (lat1-latt)/2.0 + 45.0 ) ) ) );
-        //  dxKm = DEG_TO_RAD * EARTH_RAD_KMETERS * Math.abs(lon1-lon2) / (ny-1);
         projection = new Mercator(lonv, latin);
         break;
 
@@ -431,50 +312,31 @@ class Giniheader {
         /*
         ** Get lat/lon of first grid point
         */
-        bos.get(b3, 0, 3);
-        nn = getInt(b3, 3);
-        nd = ((double) nn) / 10000.0;
-        lat1 = nd;
-        //att = new Attribute( "Lat1", nd);
-        //this.ncfile.addAttribute(null, att);
-        bos.get(b3, 0, 3);
-        nn = getInt(b3, 3);
-        nd = ((double) nn) / 10000.0;
-        lon1 = nd;
+        lat1 = readScaledInt(bos);
+        lon1 = readScaledInt(bos);
         /*
         ** Get Lov - the orientation of the grid; i.e. the east longitude of
         ** the meridian which is parallel to the y-aixs
         */
         bos.get(); /* skip one byte */
 
-        bos.get(b3, 0, 3);
-        nn = getInt(b3, 3);
-        nd = ((double) nn) / 10000.0;
-        lonv = nd;
+        lonv = readScaledInt(bos);
         lonProjectionOrigin = lonv;
-        att = new Attribute("Lov", nd);
+        att = new Attribute("Lov", lonv);
         this.ncfile.addAttribute(null, att);
 
         /*
         ** Get distance increment of grid
         */
-        bos.get(b3, 0, 3);
-        nn = getInt(b3, 3);
-        dxKm = ((double) nn) / 10000.0;
-
-        nd = ((double) nn) / 10000.;
-        att = new Attribute("DxKm", nd);
+        dxKm = readScaledInt(bos);
+        att = new Attribute("DxKm", dxKm);
         this.ncfile.addAttribute(null, att);
 
-        bos.get(b3, 0, 3);
-        nn = getInt(b3, 3);
-        dyKm = ((double) nn) / 10000.0;
-
-        nd = ((double) nn) / 10000.;
-        att = new Attribute("DyKm", nd);
+        dyKm = readScaledInt(bos);
+        att = new Attribute("DyKm", dyKm);
         this.ncfile.addAttribute(null, att);
+
         /* calculate the lat2 and lon2 */
-
         if (proj == 5) {
           latt = 60.0;            /* Fixed for polar stereographic */
           imageScale = (1. + Math.sin(DEG_TO_RAD * latt)) / 2.;
@@ -482,18 +344,12 @@ class Giniheader {
 
         lat2 = lat1 + dyKm * (ny - 1) / 111.26;
 
-
         /* Convert to east longitude */
         if (lonv < 0.) lonv += 360.;
         if (lon1 < 0.) lon1 += 360.;
 
-
         lon2 = lon1 + dxKm * (nx - 1) / 111.26 * Math.cos(DEG_TO_RAD * lat1);
 
-        diff_lon = lonv - lon1;
-
-        if (diff_lon > 180.) diff_lon -= 360.;
-        if (diff_lon < -180.) diff_lon += 360.;
         /*
         ** Convert to normal longitude to McIDAS convention
         */
@@ -506,18 +362,13 @@ class Giniheader {
         nv = bos.get();
         pole = nv.intValue();
         pole = (pole > 127) ? -1 : 1;
-        ni = pole;
-        att = new Attribute("ProjCenter", ni);
+        att = new Attribute("ProjCenter", pole);
         this.ncfile.addAttribute(null, att);
 
         bos.get(); /* skip one byte for Scanning mode */
 
-        bos.get(b3, 0, 3);
-        nn = getInt(b3, 3);
-        latin = (((double) nn) / 10000.);
-
-        nd = ((double) nn) / 10000.;
-        att = new Attribute("Latin", nd);
+        latin = readScaledInt(bos);
+        att = new Attribute("Latin", latin);
         this.ncfile.addAttribute(null, att);
 
         if (proj == 3)
@@ -529,10 +380,7 @@ class Giniheader {
 
       default:
         System.out.println("unimplemented projection");
-
-
     }
-
 
     this.ncfile.addAttribute(null, new Attribute("title", gini_GetEntityID(ent_id)));
     this.ncfile.addAttribute(null, new Attribute("summary", getPhysElemSummary(phys_elem, ent_id)));
@@ -543,17 +391,17 @@ class Giniheader {
     this.ncfile.addAttribute(null, new Attribute("standard_name_vocabulary", getPhysElemLongName(phys_elem, ent_id)));
     this.ncfile.addAttribute(null, new Attribute("creator_name", "UNIDATA"));
     this.ncfile.addAttribute(null, new Attribute("creator_url", "http://www.unidata.ucar.edu/"));
-    this.ncfile.addAttribute(null, new Attribute("naming_authority", "UCAR/UOP"));
-    this.ncfile.addAttribute(null, new Attribute("geospatial_lat_min", new Float(lat1)));
-    this.ncfile.addAttribute(null, new Attribute("geospatial_lat_max", new Float(lat2)));
-    this.ncfile.addAttribute(null, new Attribute("geospatial_lon_min", new Float(lon1)));
-    this.ncfile.addAttribute(null, new Attribute("geospatial_lon_max", new Float(lon2)));
+    this.ncfile.addAttribute(null, new Attribute("naming_authority", "UCAR/UCP"));
+    this.ncfile.addAttribute(null, new Attribute("geospatial_lat_min", lat1));
+    this.ncfile.addAttribute(null, new Attribute("geospatial_lat_max", lat2));
+    this.ncfile.addAttribute(null, new Attribute("geospatial_lon_min", lon1));
+    this.ncfile.addAttribute(null, new Attribute("geospatial_lon_max", lon2));
     //this.ncfile.addAttribute(null, new Attribute("geospatial_vertical_min", new Float(0.0)));
     //this.ncfile.addAttribute(null, new Attribute("geospatial_vertical_max", new Float(0.0)));
 
-    /** Get the image resolution.
+    /*
+     * Get the image resolution.
      */
-
     bos.position(41);  /* jump to 42 bytes of PDB */
     nv = bos.get();      /* Res [km] */
     att = new Attribute("imageResolution", nv);
@@ -566,7 +414,7 @@ class Giniheader {
     att = new Attribute("compressionFlag", nv);
     this.ncfile.addAttribute(null, att);
 
-    if (convertunsignedByte2Short(nv) == 128) {
+    if (DataType.unsignedByteToShort(nv) == 128) {
       Z_type = 2;
       //out.println( "ReadNexrInfo:: This is a Z file ");
     }
@@ -574,7 +422,7 @@ class Giniheader {
    /* new 47 - 60 */
     bos.position(46);
     nv = bos.get();      /* Cal indicator */
-    int navcal = convertunsignedByte2Short(nv);
+    int navcal = DataType.unsignedByteToShort(nv);
     int[] calcods = null;
     if (navcal == 128)
       calcods = getCalibrationInfo(bos, phys_elem, ent_id);
@@ -588,7 +436,6 @@ class Giniheader {
     // var.addAttribute( new Attribute(CDM.MISSING_VALUE, new Byte((byte) 0))); // ??
 
     // get dimensions
-    int velems;
     List<Dimension> dims = new ArrayList<>();
 
     Dimension dimX = new Dimension("x", nx, true, false, false);
@@ -597,7 +444,6 @@ class Giniheader {
     ncfile.addDimension(null, dimY);
     ncfile.addDimension(null, dimX);
 
-    velems = dimX.getLength() * dimY.getLength();
     dims.add(dimT);
     dims.add(dimY);
     dims.add(dimX);
@@ -606,7 +452,7 @@ class Giniheader {
 
     // size and beginning data position in file
     long begin = dataStart;
-    if (debug) log.warn(" name= " + vname + " velems=" + velems + " begin= " + begin + "\n");
+    if (debug) log.warn(" name= " + vname + " velems=" + var.getSize() + " begin= " + begin + "\n");
     if (navcal == 128) {
       var.setDataType(DataType.FLOAT);
       var.setSPobject(new Vinfo(begin, nx, ny, calcods));
@@ -635,7 +481,7 @@ class Giniheader {
     // latin, lov, la1, lo1
 
     // we have to project in order to find the origin
-    ProjectionPointImpl start = (ProjectionPointImpl) projection.latLonToProj(new LatLonPointImpl(lat1, lon1));
+    ProjectionPoint start = projection.latLonToProj(new LatLonPointImpl(lat1, lon1));
     if (debug) log.warn("start at proj coord " + start);
 
     double startx = start.getX();
@@ -658,7 +504,7 @@ class Giniheader {
 
       for (int i = 0; i < data.length; i++) {
         double ln = lon1 + i * dx;
-        ProjectionPointImpl pt = (ProjectionPointImpl) projection.latLonToProj(new LatLonPointImpl(lat1, ln));
+        ProjectionPoint pt = projection.latLonToProj(new LatLonPointImpl(lat1, ln));
         data[i] = pt.getX();  // startx + i*dx;
       }
     } else {
@@ -682,7 +528,7 @@ class Giniheader {
       double dy = (lat2 - lat1) / (ny - 1);
       for (int i = 0; i < data.length; i++) {
         double la = lat2 - i * dy;
-        ProjectionPointImpl pt = (ProjectionPointImpl) projection.latLonToProj(new LatLonPointImpl(la, lon1));
+        ProjectionPoint pt = projection.latLonToProj(new LatLonPointImpl(la, lon1));
         data[i] = pt.getY();  //endyy - i*dy;
       }
     } else {
@@ -718,44 +564,16 @@ class Giniheader {
 
     bos.position(46);
     byte nv = bos.get();      /* Cal indicator */
-    int navcal = convertunsignedByte2Short(nv);
+    int navcal = DataType.unsignedByteToShort(nv);
     int[] calcods = null;
     if (navcal == 128) {    /* Unidata Cal block found; unpack values */
       int scale = 10000;
       int jscale = 100000000;
       byte[] unsb = new byte[8];
-      byte[] b4 = new byte[4];
       bos.get(unsb);
-      String unitStr = new String(unsb, CDM.utf8Charset).toUpperCase();
-      String iname;
-      String iunit;
       bos.position(55);
       nv = bos.get();
-      int calcod = convertunsignedByte2Short(nv);
-
-      if (unitStr.contains("INCH")) {
-        iname = "RAIN";
-        iunit = "IN  ";
-
-      } else if (unitStr.contains("dBz")) {
-        iname = "ECHO";
-        iunit = "dBz ";
-
-      } else if (unitStr.contains("KFT")) {
-
-        iname = "TOPS";
-        iunit = "KFT ";
-
-      } else if (unitStr.contains("KG/M")) {
-
-        iname = "VIL ";
-        iunit = "mm  ";
-
-      } else {
-
-        iname = "    ";
-        iunit = "    ";
-      }
+      int calcod = DataType.unsignedByteToShort(nv);
 
       if (calcod > 0) {
         calcods = new int[5 * calcod + 1];
@@ -763,14 +581,10 @@ class Giniheader {
         for (int i = 0; i < calcod; i++) {
 
           bos.position(56 + i * 16);
-          bos.get(b4);
-          int minb = getInt(b4, 4) / 10000;        /* min brightness values         */
-          bos.get(b4);
-          int maxb = getInt(b4, 4) / 10000;       /* max brightness values         */
-          bos.get(b4);
-          int mind = getInt(b4, 4);               /* min data values               */
-          bos.get(b4);
-          int maxd = getInt(b4, 4);               /* max data values               */
+          int minb = bos.getInt() / 10000;        /* min brightness values         */
+          int maxb = bos.getInt() / 10000;       /* max brightness values         */
+          int mind = bos.getInt();               /* min data values               */
+          int maxd = bos.getInt();               /* max data values               */
 
           int idscal = 1;
           while (mind % idscal == 0 && maxd % idscal == 0) {
@@ -809,7 +623,6 @@ class Giniheader {
     }
 
     return calcods;
-
   }
 
 
@@ -817,12 +630,9 @@ class Giniheader {
     return Z_type;
   }
 
-  // Return the string of entity ID for the GINI image file
-
+  // Return the string of Sector for the GINI image file
   String gini_GetSectorID(int ent_id) {
     String name;
-     /* GINI channel ID          */
-
     switch (ent_id) {
       case 0:
         name = "Northern Hemisphere Composite";
@@ -857,6 +667,21 @@ class Giniheader {
       case 10:
         name = "NH Composite - Meteosat/GOES E/ GOES W/GMS";
         break;
+      case 11:
+        name = "Central CONUS";
+        break;
+      case 12:
+        name = "East Floater";
+        break;
+      case 13:
+        name = "West Floater";
+        break;
+      case 14:
+        name = "Central Floater";
+        break;
+      case 15:
+        name = "Polar Floater";
+        break;
       default:
         name = "Unknown-ID";
     }
@@ -870,8 +695,17 @@ class Giniheader {
   String gini_GetEntityID(int ent_id) {
     String name;
     switch (ent_id) {
-      case 99:
-        name = "RADAR-MOSIAC Composite Image";
+      case 2:
+        name = "Miscellaneous";
+        break;
+      case 3:
+        name = "JERS";
+        break;
+      case 4:
+        name ="ERS/QuikSCAT/Scatterometer";
+        break;
+      case 5:
+        name = "POES/NPOESS";
         break;
       case 6:
         name = "Composite";
@@ -882,29 +716,41 @@ class Giniheader {
       case 8:
         name = "GMS satellite Image";
         break;
-      case 9:                                    /* METEOSAT (using 6)       */
+      case 9:
         name = "METEOSAT satellite Image";
         break;
-      case 10:                                   /* GOES-7                   */
+      case 10:
         name = "GOES-7 satellite Image";
         break;
-      case 11:                                   /* GOES-8                   */
+      case 11:
         name = "GOES-8 satellite Image";
         break;
-      case 12:                                   /* GOES-9                   */
+      case 12:
         name = "GOES-9 satellite Image";
         break;
-      case 13:                                   /* GOES-10                  */
+      case 13:
         name = "GOES-10 satellite Image";
         break;
-      case 14:                                   /* GOES-11                  */
+      case 14:
         name = "GOES-11 satellite Image";
         break;
-      case 15:                                   /* GOES-12                  */
+      case 15:
         name = "GOES-12 satellite Image";
         break;
-      case 16:                                   /* GOES-13                  */
+      case 16:
         name = "GOES-13 satellite Image";
+        break;
+      case 17:
+        name = "GOES-14 satellite Image";
+        break;
+      case 18:
+        name = "GOES-15 satellite Image";
+        break;
+      case 19: // GOES-R
+        name = "GOES-16 satellite Image";
+        break;
+      case 99: // special snowflake GEMPAK Composite Images generated by Unidata
+        name = "RADAR-MOSIAC Composite Image";
         break;
       default:
         name = "Unknown";
@@ -918,7 +764,6 @@ class Giniheader {
   // Return the channel ID for the GINI image file
   String gini_GetPhysElemID(int phys_elem, int ent_id) {
     String name;
-
     switch (phys_elem) {
       case 1:
         name = "VIS";
@@ -968,9 +813,12 @@ class Giniheader {
         break;
       case 25:
         if (ent_id == 99)
-          name = "Reflectivity";
+          name = "HHC";
         else
           name = "Volcano_imagery";
+        break;
+      case 26:
+        name = "EchoTops";
         break;
       case 27:
         if (ent_id == 99)
@@ -983,9 +831,6 @@ class Giniheader {
           name = "Reflectivity";
         else
           name = "Cloud_Amount";
-        break;
-      case 26:
-        name = "EchoTops";
         break;
       case 29:
         name = "VIL";
@@ -1049,7 +894,7 @@ class Giniheader {
       case 21:
       case 22:
       case 23:
-      case 29:
+      case 25:
       case 43:
       case 48:
       case 50:
@@ -1060,12 +905,7 @@ class Giniheader {
       case 59:
         return "N/A";
       case 26:
-        return "K FT";
-      case 25:
-        if (ent_id == 99)
-          return "dBz";
-        else
-          return "N/A";
+        return "kft";
       case 27:
         if (ent_id == 99)
           return "dBz";
@@ -1076,6 +916,8 @@ class Giniheader {
           return "dBz";
         else
           return "N/A";
+      case 29:
+        return "kg m-2";
       case 30:
         return "IN";
       case 31:
@@ -1125,13 +967,18 @@ class Giniheader {
         return "Dry Microburst Potential Index";
       case 23:
         return "Microburst Potential Index";
+      case 24:
+        return "Derived Convective Inhibition";
       case 25:
         if (ent_id == 99)
-          return "2 km National 248 nm Base Composite Reflectivity";
+          return "1km National Hybrid Hydrometeor Classification Composite (Unidata)";
         else
           return "Volcano_imagery";
       case 26:
-        return "4 km National Echo Tops";
+        if (ent_id == 99)
+          return "1 km National Echo Tops Composite (Unidata)";
+        else
+          return "4 km National Echo Tops";
       case 27:
         if (ent_id == 99)
           return "1 km National Base Reflectivity Composite (Unidata)";
@@ -1139,30 +986,76 @@ class Giniheader {
           return "Cloud Top Pressure or Height";
       case 28:
         if (ent_id == 99)
-          return "1 km National Composite Reflectivity (Unidata)";
+          return "1 km National Reflectivity Composite (Unidata)";
         else
           return "Cloud Amount";
-
       case 29:
-        return "4 km National Vertically Integrated Liquid Water";
+        if (ent_id == 99)
+          return "1 km National Vertically Integrated Liquid Water (Unidata)";
+        else
+          return "4 km National Vertically Integrated Liquid Water";
       case 30:
-        return "2 km National 1-hour Precipitation (Unidata)";
+        if (ent_id == 99)
+          return "1 km National 1-hour Precipitation (Unidata)";
+        else
+          return "Surface wind speeds over oceans and Great Lakes";
       case 31:
-        return "4 km National Storm Total Precipitation (Unidata)";
+        if (ent_id == 99)
+          return "4 km National Storm Total Precipitation (Unidata)";
+        else
+          return "Surface Wetness";
+      case 32:
+        return "Ice concentrations";
+      case 33:
+        return "Ice type";
+      case 34:
+        return "Ice edge";
+      case 35:
+        return "Cloud water content";
+      case 36:
+        return "Surface type";
+      case 37:
+        return "Snow indicator";
+      case 38:
+        return "Snow/water content";
+      case 39:
+        return "Derived volcano imagery";
+      case 41:
+        return "Sounder 14.71 micron imagery";
+      case 42:
+        return "Sounder 14.37 micron imagery";
       case 43:
-        return "14.06 micron sounder image";
+        return "Sounder 14.06 micron imagery";
+      case 44:
+        return "Sounder 13.64 micron imagery";
+      case 45:
+        return "Sounder 13.37 micron imagery";
+      case 46:
+        return "Sounder 12.66 micron imagery";
+      case 47:
+        return "Sounder 12.02 micron imagery";
       case 48:
         return "11.03 micron sounder image";
+      case 49:
+        return "Sounder 11.03 micron imagery";
       case 50:
         return "7.43 micron sounder image";
       case 51:
         return "7.02 micron sounder image";
       case 52:
         return "6.51 micron sounder image";
+      case 53:
+        return "Sounder 4.57 micron imagery";
+      case 54:
+        return "Sounder 4.52 micron imagery";
       case 55:
         return "4.45 micron sounder image";
+      case 56:
+        return "Sounder 4.13 micron imagery";
       case 57:
         return "3.98 micron sounder image";
+      case 58:
+        return "Sounder 3.74 micron imagery";
       case 59:
         return "VIS sounder image ";
       default:
@@ -1226,112 +1119,54 @@ class Giniheader {
         return "Satellite Product VIS sounder visible image ";
       case 25:
         if (ent_id == 99)
-          return "Nexrad Level 3 National 248 nm Base Composite Reflectivity at Resolution 2 km";
+          return "National Hybrid Hydrometeor Classification Composite at Resolution 1 km";
         else
           return "Satellite Derived Volcano_imagery";
-
       case 26:
-        return "Nexrad Level 3 National Echo Tops at Resolution 4 km";
-      case 29:
-        return "Nexrad Level 3 National Vertically Integrated Liquid Water at Resolution 4 km";
-      case 28:
         if (ent_id == 99)
-          return "Nexrad Level 3 National 248 nm Base Composite Reflectivity at Resolution 2 km";
+          return "Nexrad Level 3 National Echo Tops at Resolution 1 km";
         else
-          return "Gridded Cloud Amount";
+          return "Nexrad Level 3 National Echo Tops at Resolution 4 km";
       case 27:
         if (ent_id == 99)
           return "Nexrad Level 3 Base Reflectivity National Composition at Resolution 1 km";
         else
           return "Gridded Cloud Top Pressure or Height";
-
+      case 28:
+        if (ent_id == 99)
+          return "Nexrad Level 3 National 248 nm Base Composite Reflectivity at Resolution 2 km";
+        else
+          return "Gridded Cloud Amount";
+      case 29:
+        if (ent_id == 99)
+          return "Nexrad Level 3 National Vertically Integrated Liquid Water at Resolution 1 km";
+        else
+          return "Nexrad Level 3 National Vertically Integrated Liquid Water at Resolution 4 km";
       case 30:
-        return "Nexrad Level 3 1 hour precipitation National Composition at Resolution 2 km";
+        return "Nexrad Level 3 1 Hour Precipitation National Composition at Resolution 2 km";
       case 31:
-        return "Nexrad Level 3 total precipitation National Composition at Resolution 4 km";
+        return "Nexrad Level 3 Storm Total Precipitation National Composition at Resolution 4 km";
       default:
         return "unknown";
     }
 
   }
 
+  // Read a scaled, 3-byte integer from file and convert to double
+  private double readScaledInt(ByteBuffer buf) {
+    // Get the first two bytes
+    short s1 = buf.getShort();
 
-  /*
-  ** Name:       GetInt
-  **
-  ** Purpose:    Convert GINI 2 or 3-byte quantities to int
-  **
-  */
-  int getInt(byte[] b, int num) {
-    int base = 1;
-    int i;
-    int word = 0;
+    // And the last one as unsigned
+    short s2 = DataType.unsignedByteToShort(buf.get());
 
-    int bv[] = new int[num];
+    // Get the sign bit, converting from 0 or 2 to +/- 1.
+    int posneg = 1 - ((s1 & 0x8000) >> 14);
 
-    for (i = 0; i < num; i++) {
-      bv[i] = convertunsignedByte2Short(b[i]);
-    }
-
-    if (bv[0] > 127) {
-      bv[0] -= 128;
-      base = -1;
-    }
-      /*
-      ** Calculate the integer value of the byte sequence
-      */
-
-    for (i = num - 1; i >= 0; i--) {
-      word += base * bv[i];
-      base *= 256;
-    }
-
-    return word;
-
-  }
-
-  public short convertunsignedByte2Short(byte b) {
-    return (short) ((b < 0) ? (short) b + 256 : (short) b);
-  }
-
-
-  // this converts a byte array to a wrapped primitive (Byte, Short, Integer, Double, Float, Long)
-  protected Object convert(byte[] barray, DataType dataType, int byteOrder) {
-
-    if (dataType == DataType.BYTE) {
-      return barray[0];
-    }
-
-    if (dataType == DataType.CHAR) {
-      return (char) barray[0];
-    }
-
-    ByteBuffer bbuff = ByteBuffer.wrap(barray);
-    if (byteOrder >= 0)
-      bbuff.order(byteOrder == ucar.unidata.io.RandomAccessFile.LITTLE_ENDIAN ? ByteOrder.LITTLE_ENDIAN : ByteOrder.BIG_ENDIAN);
-
-    if (dataType == DataType.SHORT) {
-      ShortBuffer tbuff = bbuff.asShortBuffer();
-      return tbuff.get();
-
-    } else if (dataType == DataType.INT) {
-      IntBuffer tbuff = bbuff.asIntBuffer();
-      return tbuff.get();
-
-    } else if (dataType == DataType.LONG) {
-      LongBuffer tbuff = bbuff.asLongBuffer();
-      return tbuff.get();
-
-    } else if (dataType == DataType.FLOAT) {
-      FloatBuffer tbuff = bbuff.asFloatBuffer();
-      return tbuff.get();
-
-    } else if (dataType == DataType.DOUBLE) {
-      DoubleBuffer tbuff = bbuff.asDoubleBuffer();
-      return tbuff.get();
-    }
-
-    throw new IllegalStateException();
+    // Combine the first two bytes (without sign bit) with the last byte.
+    // Multiply by proper factor for +/-
+    int nn = (((s1 & 0x7FFF) << 8) | s2) * posneg;
+    return (double) nn / 10000.0;
   }
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1355,23 +1190,6 @@ class Giniheader {
       this.ny = y;
       this.levels = levels;
     }
-
-  }
-
-
-  int isZlibHed(byte[] buf) {
-    short b0 = convertunsignedByte2Short(buf[0]);
-    short b1 = convertunsignedByte2Short(buf[1]);
-
-    if ((b0 & 0xf) == Z_DEFLATED) {
-      if ((b0 >> 4) + 8 <= DEF_WBITS) {
-        if ((((b0 << 8) + b1) % 31) == 0) {
-          return 1;
-        }
-      }
-    }
-
-    return 0;
 
   }
 

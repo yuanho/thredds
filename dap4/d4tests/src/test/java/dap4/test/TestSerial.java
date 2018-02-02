@@ -1,11 +1,14 @@
 package dap4.test;
 
-import   dap4.cdm.DapNetcdfFile;
-import dap4.dap4shared.HttpDSP;
+import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 import ucar.nc2.dataset.NetcdfDataset;
+import ucar.unidata.util.test.category.NeedsExternalResource;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -99,24 +102,9 @@ public class TestSerial extends DapTestCommon
     protected String sourceurl = null;
 
     //////////////////////////////////////////////////
-    // Constructor(s)
 
-    public TestSerial()
-        throws Exception
-    {
-        this("TestSerial");
-    }
-
-    public TestSerial(String name)
-        throws Exception
-    {
-        this(name, null);
-    }
-
-    public TestSerial(String name, String[] argv)
-        throws Exception
-    {
-        super(name);
+    @Before
+    public void setup() throws Exception {
         this.root = getDAP4Root();
         if(this.root == null)
             throw new Exception("dap4 root cannot be located");
@@ -160,6 +148,7 @@ public class TestSerial extends DapTestCommon
     //////////////////////////////////////////////////
     // Junit test method
 
+    @Category(NeedsExternalResource.class)
     @Test
     public void testSerial()
         throws Exception
@@ -167,7 +156,7 @@ public class TestSerial extends DapTestCommon
 	org.junit.Assume.assumeTrue(usingIntellij);
         for(ClientTest testcase : chosentests) {
             if(!doOneTest(testcase)) {
-                assertTrue(false);
+                Assert.assertTrue(false);
             }
         }
     }

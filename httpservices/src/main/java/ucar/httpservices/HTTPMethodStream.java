@@ -33,8 +33,9 @@
 
 package ucar.httpservices;
 
-import java.io.IOException;
+import java.io.Closeable;
 import java.io.FilterInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 
 /**
@@ -53,11 +54,11 @@ import java.io.InputStream;
  * Tom Kunicki's proposed pull request, but with the HTTPMethod
  * close extension he proposes but does not implement.
  * Pull request: https://github.com/tkunicki-usgs/thredds/commit/3b750ec0016a137db66336adeac421a9202b9d30
+ * Is this class needed in httpclient 4.5+ any more?
  *
  */
 
-
-public class HTTPMethodStream extends FilterInputStream implements AutoCloseable
+public class HTTPMethodStream extends FilterInputStream implements Closeable
 {
     //////////////////////////////////////////////////////////////////////////
     static public org.slf4j.Logger log = HTTPSession.log;

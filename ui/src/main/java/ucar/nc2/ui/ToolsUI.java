@@ -33,12 +33,14 @@
 
 package ucar.nc2.ui;
 
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.ParameterException;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 import thredds.client.catalog.writer.DataFactory;
 import thredds.featurecollection.FeatureCollectionConfig;
 import thredds.inventory.bdb.MetadataManager;
 import thredds.ui.catalog.ThreddsUI;
-import ucar.httpservices.HTTPAuthSchemes;
 import ucar.httpservices.HTTPException;
 import ucar.httpservices.HTTPSession;
 import ucar.nc2.*;
@@ -87,7 +89,6 @@ import ucar.nc2.util.CancelTask;
 import ucar.nc2.util.DebugFlags;
 import ucar.nc2.util.DiskCache2;
 import ucar.nc2.util.IO;
-import ucar.nc2.util.cache.FileCache;
 import ucar.nc2.util.xml.RuntimeConfigParser;
 import ucar.util.prefs.PreferencesExt;
 import ucar.util.prefs.XMLStore;
@@ -200,6 +201,9 @@ public class ToolsUI extends JPanel {
   private DebugFlags debugFlags;
   private boolean debug = false, debugTab = false, debugCB = false;
 
+  // Check if on a mac
+  static private final String osName = System.getProperty("os.name").toLowerCase();
+  static private final boolean isMacOs = osName.startsWith("mac os x");
 
   public ToolsUI(PreferencesExt prefs, JFrame parentFrame) {
     this.mainPrefs = prefs;
@@ -6268,6 +6272,11 @@ public class ToolsUI extends JPanel {
 
   //////////////////////////////////////////////////////////////////////////
   static private void exit() {
+    doSavePrefsAndUI();
+    System.exit(0);
+  }
+
+  static private void doSavePrefsAndUI()  {
     ui.save();
     Rectangle bounds = frame.getBounds();
     prefs.putBeanObject(FRAME_SIZE, bounds);
@@ -6278,13 +6287,15 @@ public class ToolsUI extends JPanel {
     }
 
     done = true; // on some systems, still get a window close event
-    ucar.nc2.util.cache.FileCacheIF cache = NetcdfDataset.getNetcdfFileCache();
-    if (cache != null)
-      cache.clearCache(true);
-    FileCache.shutdown(); // shutdown threads
-    MetadataManager.closeAll(); // shutdown bdb
 
-    System.exit(0);
+    // open files caches
+    ucar.unidata.io.RandomAccessFile.shutdown();
+    NetcdfDataset.shutdown();
+
+    // memory caches
+    GribCdmIndex.shutdown();
+
+    MetadataManager.closeAll(); // shutdown bdb
   }
 
   // handle messages
@@ -6319,19 +6330,32 @@ public class ToolsUI extends JPanel {
 
   /////////////////////////////////////////////////////////////////////
 
-    // run this on the event thread
+  // run this on the event thread
   private static void createGui() {
-    try {
-      // Switch to Nimbus Look and Feel, if it's available.
-      for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
-        if ("Nimbus".equals(info.getName())) {
-          UIManager.setLookAndFeel(info.getClassName());
-          break;
+
+    if (isMacOs) {
+      System.setProperty("apple.laf.useScreenMenuBar", "true");
+      // fixes the case where users on a mac use the system bar to quit rather than
+      // closing a window using the 'x' button.
+      Runtime.getRuntime().addShutdownHook(new Thread() {
+        @Override
+        public void run() {
+          doSavePrefsAndUI();
         }
+      });
+    } else {
+      try {
+        // Switch to Nimbus Look and Feel, if it's available.
+        for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
+          if ("Nimbus".equals(info.getName())) {
+            UIManager.setLookAndFeel(info.getClassName());
+            break;
+          }
+        }
+      } catch (ClassNotFoundException | InstantiationException | IllegalAccessException |
+              UnsupportedLookAndFeelException e) {
+        log.warn("Found Nimbus Look and Feel, but couldn't install it.", e);
       }
-    } catch (ClassNotFoundException | InstantiationException | IllegalAccessException |
-            UnsupportedLookAndFeelException e) {
-      log.warn("Found Nimbus Look and Feel, but couldn't install it.", e);
     }
 
     // get a splash screen up right away
@@ -6375,6 +6399,29 @@ public class ToolsUI extends JPanel {
 
   static boolean isCacheInit = false;
 
+  private static class CommandLine {
+    @Parameter(names = { "-nj22Config"}, description = "Runtime configuration file.", required = false)
+    public File nj22ConfigFile;
+
+    // Even though we want to accept at most 1 dataset, the JCommander main parameter must be a List<String>.
+    @Parameter(description = "Dataset")
+    public List<String> datasets = new ArrayList<>();
+
+    @Parameter(names = {"-h", "--help"}, description = "Display this help and exit", help = true)
+    public boolean help = false;
+
+    private final JCommander jc;
+
+    public CommandLine(String progName, String[] args) throws ParameterException {
+      this.jc = new JCommander(this, args);  // Parses args and uses them to initialize *this*.
+      jc.setProgramName(progName);           // Displayed in the usage information.
+    }
+
+    public void printUsage() {
+      jc.usage();
+    }
+  }
+
   public static void main(String args[]) {
     if (debugListen) {
       System.out.println("Arguments:");
@@ -6382,23 +6429,34 @@ public class ToolsUI extends JPanel {
         System.out.println(" " + arg);
       }
 
-        HTTPSession.debugHeaders(true);
+      HTTPSession.debugHeaders(true);
+    }
+
+    ////////////////////////////////////////// Parse command line //////////////////////////////////////////
+
+    String progName = ToolsUI.class.getName();
+    CommandLine cmdLine;
+
+    try {
+      cmdLine = new CommandLine(progName, args);
+
+      if (cmdLine.help) {
+        cmdLine.printUsage();
+        return;
+      }
+    } catch (ParameterException e) {
+      System.err.println(e.getMessage());
+      System.err.printf("Try \"%s --help\" for more information.%n", progName);
+      return;
     }
 
     //////////////////////////////////////////////////////////////////////////
     // handle multiple versions of ToolsUI, along with passing a dataset name
-    SocketMessage sm;
-    if (args.length > 0) {
-      // munge arguments into a single string
-      StringBuilder sbuff = new StringBuilder();
-      for (String arg : args) {
-        sbuff.append(arg);
-        sbuff.append(" ");
-      }
-      String arguments = sbuff.toString();
-      System.out.println("ToolsUI arguments=" + arguments);
 
-      wantDataset = arguments;
+    SocketMessage sm;
+
+    if (!cmdLine.datasets.isEmpty()) {
+      wantDataset = cmdLine.datasets.get(0);  // We only want one dataset. Ignore rest.
 
       // see if another version is running, if so send it the message
       sm = new SocketMessage(14444, wantDataset);
@@ -6407,7 +6465,7 @@ public class ToolsUI extends JPanel {
         System.exit(0);
       }
 
-    } else { // no arguments were passed
+    } else { // no dataset was passed
 
       // look for messages from another ToolsUI
       sm = new SocketMessage(14444, null);
@@ -6424,35 +6482,22 @@ public class ToolsUI extends JPanel {
       }
     }
 
-    if (debugListen) {
-      System.out.println("Arguments:");
-      for (String arg : args) {
-        System.out.println(" " + arg);
-      }
-      HTTPSession.debugHeaders(true);
-    }
-
     ////////////////////////////////////////////////////////////////////////////////////////////////
 
     // spring initialization
     try (ClassPathXmlApplicationContext springContext =
             new ClassPathXmlApplicationContext("classpath:resources/nj22/ui/spring/application-config.xml")) {
 
-      // look for run line arguments
       boolean configRead = false;
-      for (int i = 0; i < args.length; i++) {
-        if (args[i].equalsIgnoreCase("-nj22Config") && (i < args.length - 1)) {
-          String runtimeConfig = args[i + 1];
-          i++;
-          try {
-            StringBuilder errlog = new StringBuilder();
-            FileInputStream fis = new FileInputStream(runtimeConfig);
-            RuntimeConfigParser.read(fis, errlog);
-            configRead = true;
-            System.out.println(errlog);
-          } catch (IOException ioe) {
-            System.out.println("Error reading " + runtimeConfig + "=" + ioe.getMessage());
-          }
+
+      if (cmdLine.nj22ConfigFile != null) {
+        try (FileInputStream fis = new FileInputStream(cmdLine.nj22ConfigFile)) {
+          StringBuilder errlog = new StringBuilder();
+          RuntimeConfigParser.read(fis, errlog);
+          configRead = true;
+          System.out.println(errlog);
+        } catch (IOException ioe) {
+          System.out.println("Error reading " + cmdLine.nj22ConfigFile + "=" + ioe.getMessage());
         }
       }
 
@@ -6464,7 +6509,6 @@ public class ToolsUI extends JPanel {
             StringBuilder errlog = new StringBuilder();
             FileInputStream fis = new FileInputStream(filename);
             RuntimeConfigParser.read(fis, errlog);
-            configRead = true;
             System.out.println(errlog);
           } catch (IOException ioe) {
             System.out.println("Error reading " + filename + "=" + ioe.getMessage());
@@ -6512,7 +6556,7 @@ public class ToolsUI extends JPanel {
 
       UrlAuthenticatorDialog provider = new UrlAuthenticatorDialog(frame);
       try {
-        HTTPSession.setGlobalCredentialsProvider(provider,HTTPAuthSchemes.BASIC);
+        HTTPSession.setGlobalCredentialsProvider(provider);
       }catch (HTTPException e) {
         log.error("Failed to set global credentials");
       }

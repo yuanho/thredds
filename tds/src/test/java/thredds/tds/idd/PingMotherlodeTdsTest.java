@@ -1,13 +1,15 @@
 package thredds.tds.idd;
 
+import java.util.Collection;
+
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import thredds.client.catalog.Catalog;
 import thredds.tds.ethan.TestAll;
-import ucar.unidata.test.util.ExternalServer;
-
-import java.util.Collection;
+import ucar.unidata.util.test.category.NeedsExternalResource;
+import ucar.unidata.util.test.TestDir;
 
 import static org.junit.Assert.assertNotNull;
 
@@ -18,9 +20,10 @@ import static org.junit.Assert.assertNotNull;
  * @since 4.0
  */
 @RunWith(Parameterized.class)
+@Category(NeedsExternalResource.class)
 public class PingMotherlodeTdsTest
 {
-  private String tdsUrl = "http://thredds.ucar.edu/thredds/";
+  private String tdsUrl = "http://"+ TestDir.threddsServer+"/thredds/";
 
   private String catUrl;
 
@@ -41,7 +44,6 @@ public class PingMotherlodeTdsTest
   @Test
   public void pingMotherlodeCatalogs()
   {
-    ExternalServer.LIVE.assumeIsAvailable();
     StringBuilder msgLog = new StringBuilder();
 
     String url = this.tdsUrl + this.catUrl;

@@ -33,23 +33,36 @@
 // $Id: TestServerSite.java 55 2006-07-12 19:40:44Z edavis $
 package thredds.tds.ethan.httpunit;
 
-import com.meterware.httpunit.*;
+import java.io.IOException;
+import java.net.Authenticator;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.PasswordAuthentication;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.security.cert.Certificate;
+import java.util.Properties;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLPeerUnverifiedException;
+import javax.servlet.http.HttpServletResponse;
+
+import com.meterware.httpunit.GetMethodWebRequest;
+import com.meterware.httpunit.WebConversation;
+import com.meterware.httpunit.WebLink;
+import com.meterware.httpunit.WebRequest;
+import com.meterware.httpunit.WebResponse;
+import com.meterware.httpunit.WebTable;
 import junit.framework.TestCase;
+import org.junit.experimental.categories.Category;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 import thredds.catalog.InvCatalogFactory;
 import thredds.catalog.InvCatalogImpl;
-import ucar.unidata.test.util.ExternalServer;
-
-import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.SSLPeerUnverifiedException;
-import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
-import java.net.*;
-import java.security.cert.Certificate;
-import java.util.Properties;
+import ucar.unidata.util.test.category.NeedsExternalResource;
+import ucar.unidata.util.test.TestDir;
 
 /**
  * A description
@@ -57,6 +70,7 @@ import java.util.Properties;
  * @author edavis
  * @since 15 July 2005 15:50:59 -0600
  */
+@Category(NeedsExternalResource.class)
 public class TestServerSite extends TestCase
 {
   static private org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger( TestServerSite.class );
@@ -65,7 +79,7 @@ public class TestServerSite extends TestCase
   private WebConversation wc;
 
   /** The TDS site to test. */
-  private String host = "thredds.ucar.edu:";
+  private String host = TestDir.threddsTestServer+":";
   /** The name of a user with tdsConfig role. */
   private String tdsConfigUser;
   private String tdsConfigWord;
@@ -86,7 +100,6 @@ public class TestServerSite extends TestCase
   @Override
   protected void setUp()
   {
-    ExternalServer.LIVE.assumeIsAvailable();
     wc = new WebConversation();
 
     Properties env = System.getProperties();

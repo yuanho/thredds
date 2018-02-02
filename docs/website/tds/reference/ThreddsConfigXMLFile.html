@@ -11,7 +11,7 @@
 <hr>
 <p>The TDS configuration file <code>${tomcat_home}/content/thredds/threddsConfig.xml</code> allows the TDS
     administrator to control the behavior of the TDS.
-  This is the complete reference document for TDS version 4.5.</p>
+  This is the complete reference document for TDS version 4.6.</p>
 
 <p>In general, you do not have to change any of these parameters, since the TDS will
   use default settings. If you do change any of these, you must restart the thredds
@@ -19,8 +19,11 @@
   exception is that the <code>catalogRoot</code> elements will be reread by
   doing a <strong>Debug/Reinit</strong>, if you have remote management enabled.</p>
 
-<p>Here is an annotated example <a href="threddsConfig.xml.txt">threddsConfig.xml</a>.</p>
+<p><a href="https://raw.githubusercontent.com/Unidata/thredds/master/tds/src/main/webapp/WEB-INF/altContent/startup/threddsConfig.xml">Here</a>
+  is an annotated example <code>threddsConfig.xml</code>.</p>
+
 <hr style="width: 100%; height: 2px;">
+
 <p><strong>Contents</strong></p>
 
 <ul>
@@ -44,6 +47,8 @@
     <li><a href="#WMS">WMS</a></li>
     <li><a href="#ncss">NetCDF Subset Service</a><br>
     <li><a href="#ncISO">ncISO</a><br>
+    <li><a href="#ncSOS">SOS</a><br>
+
     </li>
   </ul>
   <li>CDM Configuration
@@ -143,7 +148,7 @@
 1)  &lt;standardCssUrl&gt;tds.css&lt;/standardCssUrl&gt;
 2)  &lt;catalogCssUrl&gt;tdsCat.css&lt;/catalogCssUrl&gt;    
 3)  &lt;openDapCssUrl&gt;tdsDap.css&lt;/openDapCssUrl&gt;
-4)  &lt;googleTrackingCode&gt;239487348739933&lt;/googleTrackingCode&gt;
+4)  &lt;googleTrackingCode&gt;UA-54516992-1&lt;/googleTrackingCode&gt;
 &lt;/htmlSetup&gt;
 </pre>
 
@@ -374,6 +379,26 @@ where:
 <p>Each of the <strong>allow</strong> elements above enables the corresponding ncISO service (NCML, UDDC, and ISO).
   The ncISO services are described in more detail on the <a href="ncISO.html">ncISO page</a>.
 </p>
+
+<h3><a name="SOS" id="ncSOS">SOS Service</a></h3>
+
+<p>By default the ncSOS service is disabled in the TDS. It can be enabled by including the following in the <code>threddsConfig.xml</code> file:</p>
+
+<pre>
+&lt;NCSOS&gt;
+  &lt;allow&gt;true&lt;/allow&gt;
+&lt;/NCSOS&gt;
+</pre>
+
+<p>The <strong>allow</strong> element enables the SOS service.
+  For more information,
+  see the <a href="http://www.opengeospatial.org/standards/sos">OGC</a>
+  SOS page, or the ncSOS
+  <a href="https://github.com/asascience-open/ncSOS/wiki">wiki</a>,
+  maintained by the developers of the ncSOS plugin, Applied Science
+  Associates.
+</p>
+
 <hr>
 <h2>CDM configuration</h2>
 <h3><a name="FeatureCollections">Feature Collections</a></h3>
@@ -390,13 +415,25 @@ where:
 <h3><a name="netcdfCLibrary" id="netcdfCLibrary">NetCDF-4 C library loading</a></h3>
 <pre>
 &lt;Netcdf4Clibrary&gt;
-  &lt;libraryPath&gt;C:/cdev/lib/&lt;/libraryPath&gt;
-  &lt;libraryName&gt;netcdf4&lt;/libraryName&gt;
+  &lt;libraryPath&gt;/usr/local/lib&lt;/libraryPath&gt;
+  &lt;libraryName&gt;netcdf&lt;/libraryName&gt;
+  &lt;useForReading&gt;false&lt;/useForReading&gt;
 &lt;/Netcdf4Clibrary&gt;
 </pre>
-<p align="justify">In order to write netCDF-4 files, you must have the <a href="http://www.unidata.ucar.edu/downloads/netcdf/index.jsp">netCDF-4 C library</a>,
-  version 4.2.1 or above, compiled and available on your system, along with all supporting libraries (hdf5 etc). The
-  <a href="http://www.unidata.ucar.edu/software/netcdf-java/reference/netcdf4Clibrary.html">details</a> of this differ for each operating system.</p>
+<p align="justify">In order to write netCDF-4 files, you must have the
+  <a href="http://www.unidata.ucar.edu/downloads/netcdf/index.jsp">netCDF-4 C library</a>&mdash;version 4.3.1 or
+  above&mdash;compiled and available on your system, along with all supporting libraries (HDF5, zlib, and curl). The
+  <a href="http://www.unidata.ucar.edu/software/netcdf-java/reference/netcdf4Clibrary.html">details</a> of this differ
+  for each operating system. The elements above allow you to configure how the library is discovered and used.</p>
+
+<ul>
+  <li><strong>libraryPath</strong>: The directory in which the native library is installed.</li>
+  <li><strong>libraryName</strong>: The name of the native library. This will be used to locate the proper
+    .DLL, .SO, or .DYLIB file within the <strong>libraryPath</strong> directory.</li>
+  <li><strong>useForReading</strong>: By default, the native library is only used for writing NetCDF-4 files; a
+    pure-Java layer is responsible for reading them. However, if this property is set to <code>true</code>, then
+    it will be used for reading NetCDF-4 (and HDF5) files as well.</li>
+</ul>
 
 <p align="justify">For TDS users, we recommend setting the library path and name in <code>threddsConfig.xml</code> as in the above example.</p>
 
@@ -529,9 +566,10 @@ ln -s /data/thredds/content content</pre>
 <p><em>since version 4.1</em></p>
 <pre>
 &lt;AggregationCache&gt;
-  &lt;dir&gt;/temp/acache/&lt;/dir&gt;
+  &lt;dir&gt;/tomcat_home/content/thredds/cache/agg/&lt;/dir&gt;
   &lt;scour&gt;24 hours&lt;/scour&gt;
   &lt;maxAge&gt;90 days&lt;/maxAge&gt;
+  &lt;cachePathPolicy&gt;nestedDirectory&lt;/cachePathPolicy&gt;
 &lt;/AggregationCache&gt;
 </pre>
 <p> If you have <strong>joinExisting</strong> Aggregations, coordinate information will be written to a cache directory specified by <strong>dir</strong>
@@ -542,6 +580,12 @@ ln -s /data/thredds/content content</pre>
 <p>Every <strong>scour</strong> amount of time, any item that hasnt been changed since <em>maxAge</em> time will be deleted. If you
   have aggregations that never change, set <strong>scour</strong> to &quot;-1&quot; to disable the operation. Otherwise, make <strong>maxAge</strong> longer than the longest time between changes. Basically, you don't want to remove
   active aggregations.</p>
+
+<p><strong>cachePathPolicy</strong> controls <em>how</em> cache files are stored in <strong>dir</strong>. It must be
+  set to one of <code>oneDirectory</code> or <code>nestedDirectory</code> (the default).
+  <code>oneDirectory</code> will put all cache files into the same directory, while
+  <code>nestedDirectory</code> will preserve their directory structure. Use <code>nestedDirectory</code>
+  for large aggregations, as some file systems struggle when a directory contains thousands of files.</p>
 
 <p>This cache information is intended to be permanent; it stores coordinate
   information from each file in the aggregation, so that the file does
@@ -589,7 +633,7 @@ ln -s /data/thredds/content content</pre>
   <li>
     <p>The policy must be set to one of <em>oneDirectory</em> or <em>nestedDirectory </em> (the default). <em>oneDirectory</em> will put all index files into the
       same directory, while <em>nestedDirectory</em> will preserve the directory structure of the index files. Use <em>nestedDirectory</em> for large
-      collections of  files.</p>
+      collections of files, as some file systems struggle when a directory contains thousands of files.</p>
   </li>
   <li>Every <strong>scour</strong> amount of time, any files in the cache that are older than <strong>maxAge</strong> will be removed. To turn off scouring, set the scour time to 0 (eg &quot;0 hours&quot;), or leave out the &lt;scour&gt; element. Typically you do <strong>not</strong> want to scour the indices.</li>
 </ol>
@@ -729,7 +773,7 @@ sum of the maxFiles does not exceed your OS maximum. For better performance, mak
 <hr width="100%">
 <address>
   <img alt="THREDDS" src="../thread.png" height="108" width="110">
-  This document is maintained by elves and was last updated April 2015.
+  This document is maintained by elves and was last updated June 2016.
   Send comments to
 <a href="mailto:support-thredds@unidata.ucar.edu">THREDDS support</a>.
 </address>

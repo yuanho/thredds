@@ -32,12 +32,23 @@
  */
 package ucar.nc2.dt.grid;
 
+import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import thredds.client.catalog.writer.DataFactory;
-import ucar.ma2.*;
+import ucar.ma2.Array;
+import ucar.ma2.DataType;
+import ucar.ma2.Index;
+import ucar.ma2.IndexIterator;
+import ucar.ma2.MAMath;
+import ucar.ma2.Range;
+import ucar.ma2.Section;
 import ucar.nc2.NCdumpW;
 import ucar.nc2.constants.FeatureType;
 import ucar.nc2.dataset.CoordinateAxis;
@@ -48,17 +59,16 @@ import ucar.nc2.dt.GridDatatype;
 import ucar.nc2.grib.collection.GribIosp;
 import ucar.nc2.util.CompareNetcdf2;
 import ucar.nc2.util.Misc;
-import ucar.unidata.geoloc.*;
+import ucar.unidata.geoloc.LatLonPoint;
+import ucar.unidata.geoloc.LatLonPointImpl;
+import ucar.unidata.geoloc.LatLonRect;
+import ucar.unidata.geoloc.ProjectionImpl;
+import ucar.unidata.geoloc.ProjectionRect;
 import ucar.unidata.geoloc.projection.LatLonProjection;
 import ucar.unidata.geoloc.vertical.VerticalTransform;
-import ucar.unidata.test.util.ExternalServer;
-import ucar.unidata.test.util.NeedsCdmUnitTest;
-import ucar.unidata.test.util.TestDir;
-
-import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import ucar.unidata.util.test.category.NeedsCdmUnitTest;
+import ucar.unidata.util.test.category.NeedsExternalResource;
+import ucar.unidata.util.test.TestDir;
 
 public class TestGridSubset {
 
@@ -195,9 +205,9 @@ public class TestGridSubset {
   }
 
   @Test
+  @Category(NeedsExternalResource.class)
   public void testDODS() throws Exception {
-    ExternalServer.LIVE.assumeIsAvailable();
-    String ds = "http://thredds.ucar.edu/thredds/catalog/grib/NCEP/DGEX/CONUS_12km/files/latest.xml";
+    String ds = "http://"+TestDir.threddsTestServer+"/thredds/catalog/grib/NCEP/DGEX/CONUS_12km/files/latest.xml";
     GridDataset dataset = null;
 
     try {
@@ -232,6 +242,7 @@ public class TestGridSubset {
 
   @Test
   @Ignore("Bad URL, as of 2015/03/11.")
+  @Category(NeedsExternalResource.class)
   public void testDODS2() throws Exception {
     String threddsURL = "http://lead.unidata.ucar.edu:8080/thredds/dqcServlet/latestOUADAS?adas";
     GridDataset dataset = null;
@@ -327,11 +338,11 @@ public class TestGridSubset {
   }
 
   @Test
+  @Category(NeedsExternalResource.class)
   public void test3D() throws Exception {
-    ExternalServer.DEV.assumeIsAvailable();
-    try (GridDataset dataset = GridDataset.open("dods://thredds-dev.unidata.ucar.edu/thredds/dodsC/grib/NCEP/NAM/CONUS_12km/best")) {
+    try (GridDataset dataset = GridDataset.open("dods://"+TestDir.threddsTestServer+"/thredds/dodsC/grib/NCEP/NAM/CONUS_12km/best")) {
       System.out.printf("%s%n", dataset.getLocation());
-      //GridDataset dataset = GridDataset.open("dods://thredds.ucar.edu/thredds/dodsC/grib/NCEP/NAM/CONUS_12km/best");
+      //GridDataset dataset = GridDataset.open("dods://"+TestDir.threddsServer+"/thredds/dodsC/grib/NCEP/NAM/CONUS_12km/best");
 
       GeoGrid grid = dataset.findGridByName("Relative_humidity_isobaric");
       assert null != grid;
@@ -493,9 +504,9 @@ public class TestGridSubset {
   }
 
   @Test
+  @Category(NeedsExternalResource.class)
   public void testBBSubset() throws Exception {
-    ExternalServer.LIVE.assumeIsAvailable();
-    try (GridDataset dataset = GridDataset.open("dods://thredds.ucar.edu/thredds/dodsC/grib/NCEP/GFS/CONUS_80km/best")) {
+    try (GridDataset dataset = GridDataset.open("dods://"+TestDir.threddsTestServer+"/thredds/dodsC/grib/NCEP/GFS/CONUS_80km/best")) {
       GeoGrid grid = dataset.findGridByName("Pressure_surface");
       assert null != grid;
       GridCoordSystem gcs = grid.getCoordinateSystem();
@@ -522,9 +533,9 @@ public class TestGridSubset {
   }
 
   @Test
+  @Category(NeedsExternalResource.class)
   public void testBBSubset2() throws Exception {
-    ExternalServer.LIVE.assumeIsAvailable();
-    try (GridDataset dataset = GridDataset.open("dods://thredds.ucar.edu/thredds/dodsC/grib/NCEP/NAM/CONUS_40km/conduit/best")) {
+    try (GridDataset dataset = GridDataset.open("dods://"+TestDir.threddsTestServer+"/thredds/dodsC/grib/NCEP/NAM/CONUS_40km/conduit/best")) {
       GeoGrid grid = dataset.findGridByName("Pressure_hybrid");
       assert null != grid;
       GridCoordSystem gcs = grid.getCoordinateSystem();
@@ -748,9 +759,9 @@ public class TestGridSubset {
   }
 
   @Test
+  @Category(NeedsExternalResource.class)
   public void testFindVerticalCoordinate() throws Exception {
-    ExternalServer.LIVE.assumeIsAvailable();
-    String filename = "dods://thredds.ucar.edu/thredds/dodsC/grib/NCEP/NAM/Alaska_11km/best";
+    String filename = "dods://"+TestDir.threddsTestServer+"/thredds/dodsC/grib/NCEP/NAM/Alaska_11km/best";
     try (GridDataset dataset = GridDataset.open(filename)) {
       GeoGrid grid = dataset.findGridByName("Geopotential_height_isobaric");
       assert null != grid;
@@ -849,6 +860,7 @@ public class TestGridSubset {
   }
 
   @Test
+  @Category(NeedsExternalResource.class)
   public void testScaleOffset() throws Exception {
     try (GridDataset dataset = GridDataset.open("http://esrl.noaa.gov/psd/thredds/dodsC/Datasets/noaa.oisst.v2/sst.wkmean.1990-present.nc")) {
       GeoGrid grid = dataset.findGridByName("sst");
@@ -879,12 +891,13 @@ public class TestGridSubset {
       NCdumpW.printArray(data, "org", pw, null);
       NCdumpW.printArray(data2, "subset", pw, null);
 
-      ucar.unidata.test.util.CompareNetcdf.compareData(data, data2);
+      ucar.unidata.util.test.CompareNetcdf.compareData(data, data2);
     }
   }
 
   @Test
   @Ignore("Keeps failing on nomads URL.")
+  @Category(NeedsExternalResource.class)
   public void testScaleOffset2() throws Exception {
     try (GridDataset dataset = GridDataset.open("dods://nomads.ncdc.noaa.gov/thredds/dodsC/cr20sixhr/air.1936.nc")) {
       GeoGrid grid = dataset.findGridByName("air");
@@ -985,7 +998,7 @@ public class TestGridSubset {
       NCdumpW.printArray(data, "org", pw, null);
       NCdumpW.printArray(data2, "subset", pw, null);
 
-      ucar.unidata.test.util.CompareNetcdf.compareData(data, data2);
+      ucar.unidata.util.test.CompareNetcdf.compareData(data, data2);
     }
   }
 

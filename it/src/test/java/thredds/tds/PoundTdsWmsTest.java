@@ -1,15 +1,17 @@
 package thredds.tds;
 
-import org.apache.http.client.HttpClient;
-import org.junit.Test;
-import ucar.nc2.util.IO;
-import ucar.unidata.test.util.ExternalServer;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.Future;
+
+import org.apache.http.client.HttpClient;
+import org.junit.Test;
+import org.junit.experimental.categories.Category;
+import ucar.nc2.util.IO;
+import ucar.unidata.util.test.category.NeedsExternalResource;
+import ucar.unidata.util.test.TestDir;
 
 /**
  * _more_
@@ -32,9 +34,9 @@ public class PoundTdsWmsTest
   }
 
   @Test
+  @Category(NeedsExternalResource.class)
   public void hitMl8081TdsWms() throws IOException
   {
-    ExternalServer.LIVE.assumeIsAvailable();
     String curUrl;
     long curUrlResponseSize;
     for ( int i=0; i < ml8081GfsHalfDegreeBestWmsTimeStrings.length; i++) {
@@ -61,12 +63,12 @@ public class PoundTdsWmsTest
   }
 
   @Test
+  @Category(NeedsExternalResource.class)
   public void hitMl8081TdsWms_MultiThreaded()
           throws IOException,
                  InterruptedException,
                  ExecutionException
   {
-    ExternalServer.LIVE.assumeIsAvailable();
     final int numThreads = 60;
     final int numToRepeat = 5;
     int timeout = 20 * 1000;
@@ -215,8 +217,8 @@ public class PoundTdsWmsTest
                   "2010-11-02T21:00:00.000Z",
                   "2010-11-03T00:00:00.000Z"
           };
-  private static String ml8081GfsHalfDegreeBestWmsGetCapUrl = "http://thredds.ucar.edu/thredds/wms/fmrc/NCEP/GFS/Global_0p5deg/NCEP-GFS-Global_0p5deg_best.ncd?service=WMS&version=1.3.0&request=GetCapabilities";
-  private static String ml8081GfsHalfDegreeBestWmsGetMapBaseUrl = "http://thredds.ucar.edu/thredds/wms/fmrc/NCEP/GFS/Global_0p5deg/NCEP-GFS-Global_0p5deg_best.ncd?service=WMS&version=1.3.0&request=GetMap&TRANSPARENT=true&STYLES=boxfill%2Frainbow&CRS=EPSG%3A4326&COLORSCALERANGE=0.2%2C62.9&NUMCOLORBANDS=20&LOGSCALE=false&EXCEPTIONS=XML&FORMAT=image%2Fpng&BBOX=-180,-90,180,90&WIDTH=256&HEIGHT=256&LAYERS=Precipitable_water&ELEVATION=0&TIME=";
+  private static String ml8081GfsHalfDegreeBestWmsGetCapUrl = "http://"+ TestDir.threddsTestServer+"/thredds/wms/fmrc/NCEP/GFS/Global_0p5deg/NCEP-GFS-Global_0p5deg_best.ncd?service=WMS&version=1.3.0&request=GetCapabilities";
+  private static String ml8081GfsHalfDegreeBestWmsGetMapBaseUrl = "http://"+TestDir.threddsTestServer+"/thredds/wms/fmrc/NCEP/GFS/Global_0p5deg/NCEP-GFS-Global_0p5deg_best.ncd?service=WMS&version=1.3.0&request=GetMap&TRANSPARENT=true&STYLES=boxfill%2Frainbow&CRS=EPSG%3A4326&COLORSCALERANGE=0.2%2C62.9&NUMCOLORBANDS=20&LOGSCALE=false&EXCEPTIONS=XML&FORMAT=image%2Fpng&BBOX=-180,-90,180,90&WIDTH=256&HEIGHT=256&LAYERS=Precipitable_water&ELEVATION=0&TIME=";
   private static String[] ml8081GfsHalfDegreeBestWmsTimeStrings = new String[]
           {
                   "2010-11-06T00:00:00.000Z",

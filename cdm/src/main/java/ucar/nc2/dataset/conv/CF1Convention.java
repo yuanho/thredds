@@ -165,6 +165,9 @@ public class CF1Convention extends CSMConvention {
             if (v.findAttribute(_Coordinate.Axes) == null)
               v.addAttribute(new Attribute(_Coordinate.Axes, v.getFullName())); // LOOK: may also be time dependent
           }
+
+          // look for time variables and check to see if they have a calendar attribute. if not, add the default
+          checkTimeVarForCalendar(v);
       }
 
       // look for horiz transforms. only ones that are referenced by another variable.
@@ -312,10 +315,10 @@ public class CF1Convention extends CSMConvention {
       if (sname.equalsIgnoreCase("longitude"))
         return AxisType.Lon;
 
-      if (sname.equalsIgnoreCase("projection_x_coordinate") || sname.equalsIgnoreCase("grid_longitude") || sname.equalsIgnoreCase("rotated_longitude"))
+      if (sname.equalsIgnoreCase(CF.PROJECTION_X_COORDINATE) || sname.equalsIgnoreCase(CF.GRID_LONGITUDE) || sname.equalsIgnoreCase("rotated_longitude"))
         return AxisType.GeoX;
 
-      if (sname.equalsIgnoreCase("projection_y_coordinate") || sname.equalsIgnoreCase("grid_latitude") || sname.equalsIgnoreCase("rotated_latitude"))
+      if (sname.equalsIgnoreCase(CF.PROJECTION_Y_COORDINATE) || sname.equalsIgnoreCase(CF.GRID_LATITUDE) || sname.equalsIgnoreCase("rotated_latitude"))
         return AxisType.GeoY;
     }
 
